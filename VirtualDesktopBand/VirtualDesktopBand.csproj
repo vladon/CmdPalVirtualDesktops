@@ -19,6 +19,12 @@
     
     <GenerateAppxPackageOnBuild Condition="'$(Configuration)'=='Release'">true</GenerateAppxPackageOnBuild>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Dev/test signing cert for publisher CN=vladon.dev (see AGENTS.md "Signing"). The .pfx
+         itself is gitignored (pattern *.pfx); recreate it with New-SelfSignedCertificate if missing. -->
+    <PackageCertificateKeyFile>VirtualDesktopsExtension_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificatePassword>vd2dev</PackageCertificatePassword>
+  </PropertyGroup>
 
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />

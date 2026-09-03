@@ -40,7 +40,7 @@ Command line:
 dotnet build VirtualDesktopBand.sln -c Release -p:Platform=x64   # or -p:Platform=ARM64
 ```
 
-Release builds also produce the MSIX package (see the build output for the exact path). Note that rebuilding force-closes any running instance of the extension.
+Release builds also produce the MSIX package, signed with a self-signed dev certificate (`CN=vladon.dev`; the signing key is not committed — see `AGENTS.md` → **Signing** to recreate it). To install the dev package, first import that certificate into `Local Computer\Trusted People`, then run `Add-AppxPackage` on the `.msix` from the `AppPackages\` output folder. Note that rebuilding force-closes any running instance of the extension.
 
 ## Usage
 

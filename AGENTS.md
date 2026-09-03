@@ -51,6 +51,17 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 - A custom MSBuild target (`KillRunningExecutable`) runs `taskkill /F /IM VirtualDesktopsExtension.exe` before every Build/Deploy/Publish — a running instance is force-killed (note the exe name is `VirtualDesktopsExtension`, not the project name).
 - Debug/deploy: F5 in Visual Studio with the `VirtualDesktopBand (Package)` profile deploys the MSIX without launching (`doNotLaunchApp: true`) — the CmdPal host starts the exe. The `(Unpackaged)` profile runs the exe directly, which just prints "Not being launched as a Extension... exiting." (COM activation arg is absent).
 - x86 solution configurations exist in the `.sln` but are vestigial: `RuntimeIdentifiers` and publish profiles cover only `win-x64` / `win-arm64`.
+### Signing
+
+- Dev/test packages are signed with a self-signed cert `CN=vladon.dev`: `VirtualDesktopBand/VirtualDesktopsExtension_TemporaryKey.pfx`, wired via `PackageCertificateKeyFile`/`PackageCertificatePassword` in the `.csproj`. The `.pfx` itself is gitignored (`*.pfx`).
+- To regenerate on a new machine (password `vd2dev` must match `PackageCertificatePassword`):
+
+  ```powershell
+  $c = New-SelfSignedCertificate -Type Custom -Subject "CN=vladon.dev" -KeyUsage DigitalSignature -FriendlyName "Virtual Desktops 2.0 dev" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5) -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3","2.5.29.19={text}")
+  Export-PfxCertificate -Cert "Cert:\CurrentUser\My\$($c.Thumbprint)" -FilePath .\VirtualDesktopBand\VirtualDesktopsExtension_TemporaryKey.pfx -Password (ConvertTo-SecureString -String vd2dev -Force -AsPlainText)
+  ```
+
+- Signed MSIX lands in `AppPackages\VirtualDesktopBand_<version>_<arch>_Test\` (the `_Test` suffix + warning `APPX0107` appear because the self-signed cert isn't machine-trusted). To install a dev MSIX, first trust the cert: import it into `Local Computer\Trusted People` (admin), then `Add-AppxPackage`.
 
 ## Code Conventions & Common Patterns
 
