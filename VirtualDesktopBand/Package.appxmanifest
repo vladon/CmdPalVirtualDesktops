@@ -10,10 +10,8 @@
 
   <Identity
     Name="CmdPalVirtualDesktops"
-    Publisher="CN=Michael Griese, O=Michael Griese, L=Madison, S=Wisconsin, C=US"
+    Publisher="CN=vladon.dev"
     Version="2.0.0.0" />
-  <!-- When you're ready to publish your extension, you'll need to change the
-       Publisher= to match your own identity -->
 
   <Properties>
     <DisplayName>Virtual Desktops 2.0</DisplayName>
