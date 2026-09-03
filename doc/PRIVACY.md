@@ -4,7 +4,7 @@
 
 ## Overview
 
-Virtual Desktops for Command Palette is a local desktop extension. It doesn't collect, store, or transmit any personal data.
+Virtual Desktops 2.0 is a local desktop extension. It doesn't collect, store, or transmit any personal data.
 
 ## Data Collection
 

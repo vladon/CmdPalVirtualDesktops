@@ -8,7 +8,7 @@ Virtual desktops extension for the Windows Command Palette (CmdPal, from PowerTo
 - A **dock band** (`GetDockBands`) — compact icon-only desktop switcher; icons for active/inactive desktops are user-configurable.
 - Commands: switch to desktop, move the last non-tool window to a desktop, move + switch.
 
-Fork of `zadjii/CmdPalVirtualDesktops`; origin is `vladon/CmdPalVirtualDesktops`. No data collection — everything is local (see `doc/PRIVACY.md`).
+Named **Virtual Desktops 2.0**. Based on `zadjii/CmdPalVirtualDesktops` — started as a fork of it, now a standalone repo (`origin` = `vladon/CmdPalVirtualDesktops`, `upstream` removed). No data collection — everything is local (see `doc/PRIVACY.md`).
 
 ## Architecture & Data Flow
 
@@ -101,4 +101,4 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
   ```
 
 - Commit messages follow the repo's existing style: short, casual one-line subjects (`neat`, `polished enough for release`), no conventional-commit prefixes, no bodies.
-- `origin` is the `vladon/CmdPalVirtualDesktops` fork; branch is `main`.
+- `origin` is `vladon/CmdPalVirtualDesktops`; branch is `main`.

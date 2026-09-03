@@ -1,4 +1,4 @@
-# Virtual Desktops for Command Palette
+# Virtual Desktops 2.0
 
 A [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palette/overview) (CmdPal, part of [PowerToys](https://learn.microsoft.com/windows/powertoys/)) extension for managing Windows virtual desktops: switch between desktops and send windows to them without leaving the palette.
 
@@ -28,7 +28,7 @@ Grab the latest `.msix` from the [Releases](https://github.com/vladon/CmdPalVirt
 Add-AppxPackage -Path .\VirtualDesktopsExtension_*.msix
 ```
 
-Once installed, the extension registers itself with CmdPal — look for **Virtual desktops** in the palette.
+Once installed, the extension registers itself with CmdPal — look for **Virtual Desktops 2.0** in the palette.
 
 ### From source
 
@@ -45,7 +45,7 @@ Release builds also produce the MSIX package (see the build output for the exact
 ## Usage
 
 1. Open Command Palette (`Win + Alt + Space` by default).
-2. Type **Virtual desktops** to open the desktop list, or activate the dock band for a persistent compact switcher.
+2. Type **Virtual Desktops 2.0** to open the desktop list, or activate the dock band for a persistent compact switcher.
 3. In the list, `Enter` switches to a desktop; the context menu offers *Move window here* and *Move window and switch*.
 
 ### Settings
@@ -62,5 +62,5 @@ No data collection — everything runs locally. See [doc/PRIVACY.md](doc/PRIVACY
 
 ## Credits
 
-- Original extension by [zadjii (Michael Griese)](https://github.com/zadjii/CmdPalVirtualDesktops); this repository is a fork.
+- Based on [zadjii/CmdPalVirtualDesktops](https://github.com/zadjii/CmdPalVirtualDesktops) by Michael Griese — this project started as a fork of that repository and is now maintained independently.
 - Built on the [Microsoft Command Palette extension template](https://github.com/microsoft/PowerToys) and the `Slions.VirtualDesktop` library.
