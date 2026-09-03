@@ -48,6 +48,7 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 ```
 
 - Release builds **also generate the MSIX** (`GenerateAppxPackageOnBuild=true`).
+- **Publishing a rebuild to the machine: bump the patch version first** (third part of `Identity Version` in `Package.appxmanifest`, e.g. `2.0.0.0` → `2.0.1.0`) and commit the bump. Windows blocks reinstalling the same version (`0x80073CFB`), so every published rebuild needs a fresh patch number — no `Remove-AppxPackage` dance required.
 - A custom MSBuild target (`KillRunningExecutable`) runs `taskkill /F /IM VirtualDesktopsExtension.exe` before every Build/Deploy/Publish — a running instance is force-killed (note the exe name is `VirtualDesktopsExtension`, not the project name).
 - Debug/deploy: F5 in Visual Studio with the `VirtualDesktopBand (Package)` profile deploys the MSIX without launching (`doNotLaunchApp: true`) — the CmdPal host starts the exe. The `(Unpackaged)` profile runs the exe directly, which just prints "Not being launched as a Extension... exiting." (COM activation arg is absent).
 - x86 solution configurations exist in the `.sln` but are vestigial: `RuntimeIdentifiers` and publish profiles cover only `win-x64` / `win-arm64`.
