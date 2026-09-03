@@ -100,6 +100,7 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 
 - **No test infrastructure exists**: no test projects, test SDK packages, CI workflows, scripts, or coverage config (verified repo-wide). Don't scaffold tests unprompted.
 - Verification is manual: build, deploy the MSIX, then exercise the extension inside the real CmdPal host (switch/move commands, band icons, settings changes refreshing the list). The `(Package)` launch profile handles deploy.
+- After reinstalling/updating the extension package, **restart the CmdPal host** (`Stop-Process -Name Microsoft.CmdPal.UI -Force`, then relaunch) — the dev build caches extension state and won't show updated top-level commands until restarted.
 - `DebugPrint` tracing (`Debug.WriteLine`) is the debugging tool — attach DebugView or a debugger to the running `VirtualDesktopsExtension.exe` process.
 
 ## Git Workflow
