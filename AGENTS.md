@@ -23,7 +23,7 @@ CmdPal host activates COM class f1270cad-9bc8-45c2-83a9-bee1cc52b60d
         → GetDockBands()      → VirtualDesktopsListPage(asBand: true)
 ```
 
-- `VirtualDesktopBand.cs` — `IExtension` + `IDisposable`. The `[Guid]` **must** match the `com:Class Id` in `Package.appxmanifest`. `Dispose()` sets the `ManualResetEvent` that unblocks `Main` (process exits).
+- `VirtualDesktopBand.cs` — `IExtension` + `IDisposable`. The `[Guid]` **must** match the `com:Class Id` in `Package.appxmanifest`. The host releases idle extensions after a while; honoring that killed the process and left the dock band dead (the host never re-activates a released extension), so `Dispose()` **deliberately ignores** the release and `Program.Main` runs a watchdog that exits only when the `Microsoft.CmdPal.UI` process itself is gone.
 - `VirtualDesktopsListPage` (in `VirtualDesktopCommandsProvider.cs`) is the core: subscribes to `VirtualDesktop.CurrentChanged` / `VirtualDesktop.Created` and `SettingsChanged`, then refreshes via `UpdateDesktopsOffUiThread` → `Task.Factory.StartNew(..., _scheduler)` (captured `TaskScheduler`) → `RaiseItemsChanged()`. `GetItems()` maps each `WindowsDesktop.VirtualDesktop` to a `ListItem`.
 - Virtual desktop operations (enumerate, `Switch()`, `MoveToDesktop`) come from the **`Slions.VirtualDesktop`** NuGet package (namespace `WindowsDesktop`), not from in-repo code. Win32 window enumeration (`FindLastNonToolWindow`) uses CsWin32-generated `PInvoke.*`.
 - Settings persist to `%LOCALAPPDATA%\dev.vladon.virtualdesktops\settings.json`. On first run after the 2.0 rebrand, `MigrateLegacySettings` copies them from the legacy `%LOCALAPPDATA%\Zadjii.CmdPal.VirtualDesktops\settings.json` (pre-2.0 identity) if present; the legacy file is left untouched.

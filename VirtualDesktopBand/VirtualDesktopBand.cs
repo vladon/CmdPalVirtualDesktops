@@ -30,5 +30,12 @@ public sealed partial class VirtualDesktopBand : IExtension, IDisposable
         };
     }
 
-    public void Dispose() => this._extensionDisposedEvent.Set();
+    // The host releases idle extensions after a while. Honoring that would kill the process
+    // and leave the dock band dangling: clicking its buttons then falls back to opening the
+    // palette because the host never re-activates a released extension. We keep serving
+    // instead; Program's host watchdog exits the process only when the host itself is gone.
+    public void Dispose()
+    {
+        // Deliberately not signalling _extensionDisposedEvent — see comment above.
+    }
 }
