@@ -22,11 +22,16 @@ The list updates live: desktops created or activated outside the extension are p
 
 ### From a release
 
-Grab the latest `.msix` from the [Releases](https://github.com/vladon/CmdPalVirtualDesktops/releases) page and install it:
+Grab the latest `.msix` for your architecture (`x64` or `arm64`) from the [Releases](https://github.com/vladon/CmdPalVirtualDesktops/releases) page.
+
+The packages are signed with a self-signed certificate (`CN=vladon.dev`); its public half ships with each release and lives in the repo as [`vd2-signing.cer`](../blob/main/vd2-signing.cer). Trust it once (admin PowerShell), then install:
 
 ```powershell
-Add-AppxPackage -Path .\VirtualDesktopsExtension_*.msix
+certutil -addstore -f TrustedPeople .\vd2-signing.cer
+Add-AppxPackage -Path .\VirtualDesktopBand_2.0.3.0_x64.msix
 ```
+
+If the original extension by zadjii is still installed, remove it first — it is a different package identity: `Get-AppxPackage *CmdPalVirtualDesktops* | Remove-AppxPackage`.
 
 Once installed, the extension registers itself with CmdPal — look for **Virtual Desktops 2.0** in the palette.
 
