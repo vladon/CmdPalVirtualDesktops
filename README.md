@@ -32,7 +32,7 @@ Once installed, the extension registers itself with CmdPal — look for **Virtua
 
 ### From source
 
-Requires Windows and the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0). The easiest route is Visual Studio (with the single-project MSIX packaging workload): open `VirtualDesktopBand.sln` and press F5 with the `VirtualDesktopBand (Package)` profile — this deploys the extension without launching it; the CmdPal host starts it on demand.
+Requires Windows and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). The easiest route is Visual Studio (with the single-project MSIX packaging workload): open `VirtualDesktopBand.sln` and press F5 with the `VirtualDesktopBand (Package)` profile — this deploys the extension without launching it; the CmdPal host starts it on demand.
 
 Command line:
 

@@ -39,8 +39,7 @@ CmdPal host activates COM class f1270cad-9bc8-45c2-83a9-bee1cc52b60d
 
 ## Development Commands
 
-Requires Windows + .NET 9 SDK. From repo root:
-
+Requires Windows + .NET 10 SDK. From repo root:
 ```sh
 dotnet restore VirtualDesktopBand.sln
 dotnet build VirtualDesktopBand.sln -c Debug -p:Platform=x64    # or ARM64
@@ -91,7 +90,7 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 
 ## Runtime/Tooling Preferences
 
-- .NET 9, Windows-specific TFM `net9.0-windows10.0.26100.0` with Windows SDK projection `10.0.26100.68-preview`; min OS 10.0.19041.0. Windows-only — do not try to make it cross-platform.
+- .NET 10, Windows-specific TFM `net10.0-windows10.0.26100.0` with Windows SDK projection `10.0.26100.68-preview`; min OS 10.0.19041.0. Windows-only — do not try to make it cross-platform.
 - Build with `dotnet` CLI or Visual Studio (MSIX tooling / single-project packaging). NuGet source is pinned to nuget.org only (`nuget.config` clears all others).
 - Platforms: x64 and ARM64 (`PlatformTarget=$(Platform)` in `Directory.Build.props`).
 - Renaming the extension touches several coupled places: `AssemblyName` (`VirtualDesktopsExtension.exe`, referenced by the `com:ExeServer` and the taskkill target), the COM GUID (code + manifest), and the settings folder name.
