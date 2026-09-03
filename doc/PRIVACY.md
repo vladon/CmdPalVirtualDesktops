@@ -20,4 +20,4 @@ If this privacy policy is updated, the changes will be posted in the project's G
 
 ## Contact
 
-If you have questions about this privacy policy, please open an issue on the [GitHub repository](https://github.com/zadjii/CmdPalVirtualDesktops).
+If you have questions about this privacy policy, please open an issue on the [GitHub repository](https://github.com/vladon/CmdPalVirtualDesktops).

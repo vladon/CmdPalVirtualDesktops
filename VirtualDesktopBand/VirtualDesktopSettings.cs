@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
-namespace Zadjii.CmdPal.VirtualDesktops;
+namespace Vladon.CmdPal.VirtualDesktops;
 
 public class VirtualDesktopSettings : JsonSettingsManager
 {

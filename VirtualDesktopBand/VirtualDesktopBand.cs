@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.CommandPalette.Extensions;
 
-namespace Zadjii.CmdPal.VirtualDesktops;
+namespace Vladon.CmdPal.VirtualDesktops;
 
 [Guid("f1270cad-9bc8-45c2-83a9-bee1cc52b60d")]
 public sealed partial class VirtualDesktopBand : IExtension, IDisposable
