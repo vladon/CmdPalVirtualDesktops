@@ -11,7 +11,7 @@
   <Identity
     Name="dev.vladon.virtualdesktops"
     Publisher="CN=vladon.dev"
-    Version="2.0.2.0" />
+    Version="2.0.3.0" />
 
   <Properties>
     <DisplayName>Virtual Desktops 2.0</DisplayName>
@@ -72,7 +72,6 @@
   </Applications>
 
   <Capabilities>
-    <Capability Name="internetClient" />
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>

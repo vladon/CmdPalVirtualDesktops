@@ -84,7 +84,7 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 - `VirtualDesktopBand/VirtualDesktopCommandsProvider.cs` — provider, `Icons`, `VirtualDesktopsListPage`, both `InvokableCommand`s (the bulk of the logic)
 - `VirtualDesktopBand/VirtualDesktopSettings.cs` — settings model + persistence path
 - `VirtualDesktopBand/VirtualDesktopBand.csproj` — TFM, RIDs, MSIX tooling, package refs, `KillRunningExecutable` target
-- `VirtualDesktopBand/Package.appxmanifest` — MSIX identity (`CmdPalVirtualDesktops`), COM `ExeServer` + CmdPal `CmdPalProvider` registration, capabilities (`runFullTrust`, `internetClient`)
+- `VirtualDesktopBand/Package.appxmanifest` — MSIX identity (`dev.vladon.virtualdesktops`), COM `ExeServer` + CmdPal `CmdPalProvider` registration, capabilities (`runFullTrust`)
 - `VirtualDesktopBand/NativeMethods.txt` — CsWin32 P/Invoke allow-list
 - `Directory.Build.props` / `Directory.Packages.props` / `nuget.config` — shared build config, CPM versions, nuget.org-only source mapping
 

@@ -4,6 +4,7 @@
 
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -82,6 +83,10 @@ public partial class VirtualDesktopsListPage : ListPage
 {
     TaskScheduler _scheduler;
 
+    // Raised by the nested commands after they change desktop state so live pages refresh
+    // immediately instead of waiting for the (sometimes delayed) COM event.
+    internal static event Action? DesktopsChanged;
+
     public override string Name => "Open";
     public override string Id => "dev.vladon.virtualDesktops";
     public override IconInfo Icon => Icons.TaskViewIcon;
@@ -98,6 +103,7 @@ public partial class VirtualDesktopsListPage : ListPage
 
         VirtualDesktop.CurrentChanged += (_, args) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Created += (_, desktop) => UpdateDesktopsOffUiThread();
+        DesktopsChanged += UpdateDesktopsOffUiThread;
         VirtualDesktopSettings.Instance.Settings.SettingsChanged += (_, _) => UpdateDesktopsOffUiThread();
 
         _desktops = VirtualDesktop.GetDesktops();
@@ -193,10 +199,11 @@ public partial class VirtualDesktopsListPage : ListPage
 
         if (!asBand)
         {
-            bool hasName = !string.IsNullOrEmpty(desktop.Name);
+            string desktopName = GetDesktopName(desktop, index);
+            bool hasName = !string.IsNullOrEmpty(desktopName);
             string desktopNumberLabel = $"Desktop {index + 1}";
 
-            li.Title = hasName ? desktop.Name : desktopNumberLabel;
+            li.Title = hasName ? desktopName : desktopNumberLabel;
             li.Subtitle = hasName ? desktopNumberLabel : string.Empty;
             Details details = new Details()
             {
@@ -212,6 +219,35 @@ public partial class VirtualDesktopsListPage : ListPage
         }
 
         return li;
+    }
+
+    // On Windows 10 the COM layer often returns an empty name for custom-named desktops
+    // (zadjii/CmdPalVirtualDesktops#4); Win10 reliably persists them in the registry keyed
+    // by desktop GUID, so fall back to it whenever the API gives us nothing.
+    private static string GetDesktopName(VirtualDesktop desktop, int index)
+    {
+        string name = desktop.Name;
+        if (string.IsNullOrEmpty(name))
+        {
+            name = GetDesktopNameFromRegistry(desktop.Id);
+        }
+
+        return name ?? string.Empty;
+    }
+
+    private static string? GetDesktopNameFromRegistry(Guid desktopId)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VirtualDesktops\Desktops\{{{desktopId}}}");
+            return key?.GetValue("Name") as string;
+        }
+        catch (Exception e)
+        {
+            DebugPrint($"Desktop name registry lookup failed\n{e.Message}");
+            return null;
+        }
     }
 
     private static HWND FindLastNonToolWindow()
@@ -279,12 +315,14 @@ public partial class VirtualDesktopsListPage : ListPage
                     DebugPrint($"Moving window {hWnd} ('{title}') to '{desktop}'");
                     VirtualDesktop.MoveToDesktop(hWnd, desktop);
                     DebugPrint($"...done");
+                    DesktopsChanged?.Invoke();
 
                     if (andSwitchTo)
                     {
                         DebugPrint($"Switching to '{desktop}'");
                         desktop.Switch();
                         DebugPrint($"...done");
+                        DesktopsChanged?.Invoke();
                     }
                 }
                 else
@@ -319,6 +357,7 @@ public partial class VirtualDesktopsListPage : ListPage
                 DebugPrint($"Switching to '{Desktop.ToString()}'");
                 desktop.Switch();
                 DebugPrint($"...done");
+                DesktopsChanged?.Invoke();
             }
             catch (Exception e)
             {

@@ -12,7 +12,7 @@ Virtual Desktops 2.0 is a local desktop extension. It doesn't collect, store, or
 
 ## Third-Party Services
 
-This extension does not integrate with any third-party services, APIs, or cloud infrastructure. All functionality is performed locally between the extension and the Microsoft Teams desktop client.
+This extension does not integrate with any third-party services, APIs, or cloud infrastructure. All functionality is performed locally between the extension and the Microsoft Command Palette (PowerToys) desktop client.
 
 ## Changes to This Policy
 
