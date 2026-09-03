@@ -5,6 +5,7 @@
 using Microsoft.CommandPalette.Extensions.Toolkit;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace Zadjii.CmdPal.VirtualDesktops;
@@ -50,13 +51,48 @@ public class VirtualDesktopSettings : JsonSettingsManager
         "The icon to display for inactive desktops in the band",
         _iconChoices);
 
+    private const string SettingsFolderName = "dev.vladon.virtualdesktops";
+    private const string LegacySettingsFolderName = "Zadjii.CmdPal.VirtualDesktops";
+
     internal static string SettingsJsonPath()
     {
         var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Zadjii.CmdPal.VirtualDesktops");
+            SettingsFolderName);
         Directory.CreateDirectory(directory);
+        MigrateLegacySettings(directory);
         return Path.Combine(directory, "settings.json");
+    }
+
+    // First run after the 2.0 rebrand: the package identity changed, so settings would start
+    // from scratch. If the pre-2.0 extension ever wrote settings, seed the new location from
+    // it. The legacy file is left in place so an old install keeps working until uninstalled.
+    private static void MigrateLegacySettings(string newDirectory)
+    {
+        try
+        {
+            var newPath = Path.Combine(newDirectory, "settings.json");
+            if (File.Exists(newPath))
+            {
+                return;
+            }
+
+            var legacyPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                LegacySettingsFolderName,
+                "settings.json");
+            if (!File.Exists(legacyPath))
+            {
+                return;
+            }
+
+            File.Copy(legacyPath, newPath);
+            Debug.WriteLine($"Migrated settings from {legacyPath} to {newPath}");
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine($"Settings migration failed\n{e.Message}");
+        }
     }
 
     public VirtualDesktopSettings()

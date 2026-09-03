@@ -50,7 +50,7 @@ Release builds also produce the MSIX package (see the build output for the exact
 
 ### Settings
 
-Open the extension's settings in CmdPal to choose which icons the band uses for the active and inactive desktops: dot, pill, filled/empty square, or the desktop's wallpaper. Settings are stored locally in `%LOCALAPPDATA%\Zadjii.CmdPal.VirtualDesktops\settings.json`.
+Open the extension's settings in CmdPal to choose which icons the band uses for the active and inactive desktops: dot, pill, filled/empty square, or the desktop's wallpaper. Settings are stored locally in `%LOCALAPPDATA%\dev.vladon.virtualdesktops\settings.json` and are migrated automatically from the pre-2.0 location on first run.
 
 ## How It Works
 
