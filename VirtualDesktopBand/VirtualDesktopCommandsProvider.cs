@@ -83,7 +83,7 @@ public partial class VirtualDesktopsListPage : ListPage
     TaskScheduler _scheduler;
 
     public override string Name => "Open";
-    public override string Id => "com.vladon.virtualDesktops";
+    public override string Id => "dev.vladon.virtualDesktops";
     public override IconInfo Icon => Icons.TaskViewIcon;
 
     public static readonly Tag CurrentDesktopTag = new("Current");
@@ -251,7 +251,7 @@ public partial class VirtualDesktopsListPage : ListPage
     private sealed partial class MoveWindowToDesktopCommand(VirtualDesktop desktop, int index, bool andSwitchTo) : InvokableCommand
     {
         public override string Name => andSwitchTo ? "Move window and switch" : "Move window here";
-        public override string Id => $"com.vladon.virtualDesktops.moveWindow.{index}";
+        public override string Id => $"dev.vladon.virtualDesktops.moveWindow.{index}";
         public override IconInfo Icon => andSwitchTo ? Icons.NewWindowIcon : Icons.SendIcon;
 
         public override ICommandResult Invoke()
@@ -306,7 +306,7 @@ public partial class VirtualDesktopsListPage : ListPage
         public VirtualDesktop Desktop => desktop;
         public override string Name => asBand ? string.Empty : "Switch to desktop";
         internal bool IsCurrent { get; init; } = isCurrent;
-        public override string Id => $"com.vladon.virtualDesktops.switchTo.{index}";
+        public override string Id => $"dev.vladon.virtualDesktops.switchTo.{index}";
         public override IconInfo Icon => Icons.Switchcon;
         public override string ToString()
         {
