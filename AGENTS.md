@@ -83,6 +83,7 @@ Published to GitHub Releases (`vladon/CmdPalVirtualDesktops`, tag `v<version>`, 
    ```
 
 5. To deploy locally: `Add-AppxPackage` the new `.msix` (a bumped version updates in place — no `Remove-AppxPackage` dance), then **restart the CmdPal host** (see Testing & QA) and verify the extension process is alive and searchable in the palette.
+6. **winget** (optional, per release): add manifests to `microsoft/winget-pkgs` — sparse-clone your fork (`git clone --depth 1 --filter=blob:none --sparse`), put 3 YAMLs under `manifests/v/Vladon/VirtualDesktops/<version>/`, PR titled `Add version: Vladon.VirtualDesktops version <version>`. **File naming (new convention, enforced by validation)**: `<ID>.installer.yaml`, `<ID>.yaml` (the version manifest!), `<ID>.locale.en-US.yaml` (the defaultLocale!). Use `ManifestVersion: 1.12.0`. Validate locally with `winget validate` before pushing. CLA with Microsoft must be signed once (reply `@microsoft-github-policy-service agree` on the PR). The self-signed cert must be disclosed in the PR body — users trust `vd2-signing.cer` before install.
 
 ## Code Conventions & Common Patterns
 
