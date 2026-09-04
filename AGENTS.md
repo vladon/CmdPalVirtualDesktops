@@ -63,6 +63,27 @@ dotnet publish VirtualDesktopBand -c Release -p:Platform=x64    # picks up win-x
 
 - Signed MSIX lands in `AppPackages\VirtualDesktopBand_<version>_<arch>_Test\` (the `_Test` suffix + warning `APPX0107` appear because the self-signed cert isn't machine-trusted). To install a dev MSIX, first trust the cert: import it into `Local Computer\Trusted People` (admin), then `Add-AppxPackage`.
 
+### Releases
+
+Published to GitHub Releases (`vladon/CmdPalVirtualDesktops`, tag `v<version>`, e.g. `v2.0.4.0`). Procedure:
+
+1. Bump the patch version (both `Package.appxmanifest` and `app.manifest`) and commit.
+2. Build both architectures — each produces a signed MSIX in `VirtualDesktopBand/AppPackages/VirtualDesktopBand_<version>_<arch>_Test\`:
+
+   ```sh
+   dotnet publish VirtualDesktopBand -c Release -p:Platform=x64
+   dotnet publish VirtualDesktopBand -c Release -p:Platform=ARM64
+   ```
+
+3. Compute SHA-256 for both `.msix` files (`sha256sum`).
+4. Create the release with both `.msix` files plus the public signing cert `vd2-signing.cer` (repo root, private `.pfx` is **never** published) as assets, marked `--latest`. Release notes must include the SHA-256 table and install steps: trust `vd2-signing.cer` (`certutil -addstore -f TrustedPeople`), `Add-AppxPackage`, remove the old zadjii-identity package if present.
+
+   ```sh
+   gh release create v<version> --title "Virtual Desktops 2.0 — v<version>" --notes-file notes.md --latest <msix-x64> <msix-arm64> vd2-signing.cer
+   ```
+
+5. To deploy locally: `Add-AppxPackage` the new `.msix` (a bumped version updates in place — no `Remove-AppxPackage` dance), then **restart the CmdPal host** (see Testing & QA) and verify the extension process is alive and searchable in the palette.
+
 ## Code Conventions & Common Patterns
 
 - **File-scoped namespaces**, `Nullable` enable, `ImplicitUsings` **not** set (explicit usings), `AllowUnsafeBlocks` true. LangVersion = net9 default (C# 13).
