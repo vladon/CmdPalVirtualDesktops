@@ -67,6 +67,12 @@ public class Program
             server.RegisterClass<VirtualDesktopBand, IExtension>(() => extensionInstance);
             server.Start();
 
+            // The host releases idle extensions, and with COMGLB_FAST_RUNDOWN (set by
+            // Shmuelie) that rundowns the whole process — silently killing the dock band
+            // binding. Hold a server-process lock: COM may not rundown or exit the process
+            // while it is held, so the band binding stays alive across idle releases.
+            LifetimeLog.Write($"Server lock acquired: {PInvoke.CoAddRefServerProcess()}");
+
             // The extension ignores the host's idle release-dispose to keep the dock band
             // functional; this watchdog is the only thing that lets the process exit —
             // when the host process itself is gone, so we can't outlive it as an orphan.
@@ -85,6 +91,7 @@ public class Program
             // The extension ignores idle release-dispose from the host (see VirtualDesktopBand.Dispose),
             // so this event is only signalled by the watchdog below when the host process is gone.
             extensionDisposedEvent.WaitOne();
+            LifetimeLog.Write($"Exiting — releasing server lock (refs={PInvoke.CoReleaseServerProcess()})");
             server.Stop();
             server.UnsafeDispose();
 

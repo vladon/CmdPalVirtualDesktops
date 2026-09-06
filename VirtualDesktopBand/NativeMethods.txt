@@ -5,3 +5,5 @@ GetWindowThreadProcessId
 GetWindowText
 GetWindowTextLength
 ShowWindow
+CoAddRefServerProcess
+CoReleaseServerProcess
