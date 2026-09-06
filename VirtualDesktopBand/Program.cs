@@ -101,7 +101,7 @@ public class Program
     {
         try
         {
-            if ((DateTime.Now - _lastHostRestart).TotalSeconds < 60)
+            if ((DateTime.Now - _lastHostRestart).TotalSeconds < 10)
             {
                 LifetimeLog.Write($"Session transition {reason}: host restart skipped (rate limit)");
                 return;

@@ -111,10 +111,7 @@ public partial class VirtualDesktopsListPage : ListPage
         {
             LifetimeLog.Write($"SessionSwitch: {e.Reason}");
             UpdateDesktopsOffUiThread();
-            if (e.Reason is SessionSwitchReason.RemoteConnect
-                or SessionSwitchReason.RemoteDisconnect
-                or SessionSwitchReason.ConsoleConnect
-                or SessionSwitchReason.ConsoleDisconnect)
+            if (e.Reason is SessionSwitchReason.RemoteConnect or SessionSwitchReason.ConsoleConnect)
             {
                 var reason = e.Reason.ToString();
                 Task.Run(async () =>
