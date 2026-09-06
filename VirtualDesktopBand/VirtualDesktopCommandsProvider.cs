@@ -105,6 +105,13 @@ public partial class VirtualDesktopsListPage : ListPage
         VirtualDesktop.Created += (_, desktop) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Destroyed += (_, _) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Renamed += (_, _) => UpdateDesktopsOffUiThread();
+        // RDP transitions recreate the session desktop and the dock band can go stale in
+        // the host; nudge a refresh on every session switch so it self-heals.
+        SystemEvents.SessionSwitch += (_, e) =>
+        {
+            LifetimeLog.Write($"SessionSwitch: {e.Reason}");
+            UpdateDesktopsOffUiThread();
+        };
         DesktopsChanged += UpdateDesktopsOffUiThread;
         VirtualDesktopSettings.Instance.Settings.SettingsChanged += (_, _) => UpdateDesktopsOffUiThread();
 
