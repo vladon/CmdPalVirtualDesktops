@@ -101,6 +101,15 @@ public partial class VirtualDesktopsListPage : ListPage
     // updates are the only way its visible state (active desktop highlight) can change.
     private readonly Dictionary<Guid, ListItem> _itemsByDesktopId = new();
 
+    // Session transitions (RDP/console) can break the host's dock band binding; all
+    // host-bound refreshes are suppressed until the session settles (see SessionSwitch).
+    private static DateTime _sessionSettleUntil = DateTime.MinValue;
+
+    // Flip to true to bounce the palette host on session transitions — the brute-force
+    // recovery for a stale band (blinks the dock for a few seconds). Off while the
+    // deferred-refresh experiment runs.
+    private static readonly bool EnableHostRestartOnSessionTransition = false;
+
     public VirtualDesktopsListPage(bool asBand)
     {
         _asBand = asBand;
@@ -110,20 +119,39 @@ public partial class VirtualDesktopsListPage : ListPage
         VirtualDesktop.Created += (_, desktop) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Destroyed += (_, _) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Renamed += (_, _) => UpdateDesktopsOffUiThread();
-        // RDP transitions recreate the session desktop and the dock band can go stale in
-        // the host; nudge a refresh on every session switch so it self-heals.
+        // RDP/console transitions recreate the session desktop AND the host's dock band
+        // binding can break (microsoft/PowerToys#50367). Suspected trigger: COM item
+        // updates fired into the host mid-transition. So: suppress all host-bound
+        // refreshes while the session settles, then apply one deferred refresh — if the
+        // band survives this way, no palette restart is ever needed.
         SystemEvents.SessionSwitch += (_, e) =>
         {
             LifetimeLog.Write($"SessionSwitch: {e.Reason}");
-            UpdateDesktopsOffUiThread();
-            if (e.Reason is SessionSwitchReason.RemoteConnect or SessionSwitchReason.ConsoleConnect)
+            if (e.Reason is SessionSwitchReason.RemoteConnect
+                or SessionSwitchReason.RemoteDisconnect
+                or SessionSwitchReason.ConsoleConnect
+                or SessionSwitchReason.ConsoleDisconnect)
             {
-                var reason = e.Reason.ToString();
+                _sessionSettleUntil = DateTime.Now.AddSeconds(8);
                 Task.Run(async () =>
                 {
-                    await Task.Delay(3000);
-                    Program.RestartHostForSessionTransition(reason);
+                    await Task.Delay(8500);
+                    LifetimeLog.Write("Deferred refresh after session transition");
+                    UpdateDesktopsOffUiThread();
                 });
+                if (EnableHostRestartOnSessionTransition)
+                {
+                    var reason = e.Reason.ToString();
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(3000);
+                        Program.RestartHostForSessionTransition(reason);
+                    });
+                }
+            }
+            else
+            {
+                UpdateDesktopsOffUiThread();
             }
         };
         DesktopsChanged += UpdateDesktopsOffUiThread;
@@ -156,6 +184,12 @@ public partial class VirtualDesktopsListPage : ListPage
 
     private void UpdateDesktopsOffUiThread()
     {
+        if (DateTime.Now < _sessionSettleUntil)
+        {
+            LifetimeLog.Write("Refresh suppressed during session transition (deferred)");
+            return;
+        }
+
         Task.Factory.StartNew(UpdateDesktopsOnUiThread,
             CancellationToken.None,
             TaskCreationOptions.None,
