@@ -405,12 +405,6 @@ public partial class VirtualDesktopsListPage : ListPage
                 return true; // continue
             }
 
-            uint windowPid = 0;
-            _ = PInvoke.GetWindowThreadProcessId(hWnd, &windowPid);
-            if (hostProcessIds.Contains(windowPid))
-            {
-                return true; // skip the palette host's own windows (the dock itself)
-            }
 
             if (VirtualDesktop.FromHwnd(hWnd) is not VirtualDesktop onDesktop || onDesktop.Id != target.Id)
             {
