@@ -96,6 +96,11 @@ public partial class VirtualDesktopsListPage : ListPage
     private VirtualDesktop[] _desktops;
     private readonly bool _asBand;
 
+    // Items are cached per desktop and mutated in place on refresh: the dock renders the
+    // ListItem objects it holds at registration and ignores RaiseItemsChanged, so in-place
+    // updates are the only way its visible state (active desktop highlight) can change.
+    private readonly Dictionary<Guid, ListItem> _itemsByDesktopId = new();
+
     public VirtualDesktopsListPage(bool asBand)
     {
         _asBand = asBand;
@@ -131,26 +136,22 @@ public partial class VirtualDesktopsListPage : ListPage
 
     public override IListItem[] GetItems()
     {
-        VirtualDesktop[] desktops = [];
-
         List<IListItem> items = new(_desktops.Length);
-        DebugPrint($"Current desktop is {VirtualDesktop.Current}");
+        var seenDesktopIds = new HashSet<Guid>();
 
         for (int i = 0; i < _desktops.Length; i++)
         {
             VirtualDesktop desktop = _desktops[i];
-            items.Add(DesktopToItem(desktop, _asBand, i));
+            seenDesktopIds.Add(desktop.Id);
+            items.Add(GetOrRefreshItem(desktop, _asBand, i));
         }
-        DebugPrint(string.Join(',', items.Select(i => i.Command.ToString())));
-        return items.ToArray();
-    }
 
-    private void UpdateDesktopsOffUiThread()
-    {
-        Task.Factory.StartNew(UpdateDesktopsOnUiThread,
-            CancellationToken.None,
-            TaskCreationOptions.None,
-            _scheduler);
+        foreach (var staleId in _itemsByDesktopId.Keys.Where(id => !seenDesktopIds.Contains(id)).ToList())
+        {
+            _itemsByDesktopId.Remove(staleId);
+        }
+
+        return items.ToArray();
     }
 
     private void UpdateDesktopsOnUiThread()
@@ -172,31 +173,6 @@ public partial class VirtualDesktopsListPage : ListPage
     private static ListItem DesktopToItem(VirtualDesktop desktop, bool asBand, int index)
     {
         bool isCurrent = desktop == VirtualDesktop.Current;
-        if (isCurrent)
-        {
-            DebugPrint($"    * I ({desktop.ToString()}) am current");
-        }
-        else
-        {
-            DebugPrint($"    - I am NOT current");
-        }
-        IconInfo wallpaperIconInfo = new IconInfo(desktop.WallpaperPath);
-
-        // Possible good icons sets:
-        // * CheckboxFillIcon : CheckboxEmptyIcon for squares
-        // * StatusCircleIcon : CircleFillBadge12Icon for a small circle vs big circle
-        // * ToggleFilledIcon : CircleFillBadge12Icon for big oval vs circle
-        // * wallpaperIconInfo : CircleFillBadge12Icon for wallpaper vs circle
-        //
-        // What we really should have is a setting for 
-        // * active desktop icon
-        // * inactive desktop icon
-
-        IconInfo icon = asBand ?
-            (isCurrent
-                ? VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.ActiveDesktopIcon, desktop.WallpaperPath)
-                : VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.InactiveDesktopIcon, desktop.WallpaperPath)) :
-            wallpaperIconInfo;
 
         List<CommandContextItem> contextItems = [
             new CommandContextItem(new MoveWindowToDesktopCommand(desktop, index, false))
@@ -212,7 +188,7 @@ public partial class VirtualDesktopsListPage : ListPage
         if (asBand)
         {
             // in the band we only show the context menu, not the command in the list item itself
-            contextItems.Insert(0, new CommandContextItem(new SwitchToDesktopCommand(desktop, isCurrent, asBand:false, index))
+            contextItems.Insert(0, new CommandContextItem(new SwitchToDesktopCommand(desktop, isCurrent, asBand: false, index))
             {
                 Title = "Switch to desktop",
                 Icon = Icons.Switchcon,
@@ -221,9 +197,29 @@ public partial class VirtualDesktopsListPage : ListPage
 
         ListItem li = new ListItem(new SwitchToDesktopCommand(desktop, isCurrent, asBand, index))
         {
-            Icon = icon,
             MoreCommands = contextItems.ToArray(),
         };
+
+        ApplyDesktopState(li, desktop, asBand, index);
+        return li;
+    }
+
+    // Sets the display state (icon, title, tags) of a band/list item. Shared between item
+    // creation and in-place refreshes: the dock renders the ListItem objects it holds at
+    // registration and ignores RaiseItemsChanged, so refreshing in place is the only way
+    // its visible state (active desktop highlight) can change.
+    private static void ApplyDesktopState(ListItem li, VirtualDesktop desktop, bool asBand, int index)
+    {
+        bool isCurrent = desktop == VirtualDesktop.Current;
+        IconInfo wallpaperIconInfo = new IconInfo(desktop.WallpaperPath);
+
+        IconInfo icon = asBand ?
+            (isCurrent
+                ? VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.ActiveDesktopIcon, desktop.WallpaperPath)
+                : VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.InactiveDesktopIcon, desktop.WallpaperPath)) :
+            wallpaperIconInfo;
+
+        li.Icon = icon;
 
         if (!asBand)
         {
@@ -233,17 +229,26 @@ public partial class VirtualDesktopsListPage : ListPage
 
             li.Title = hasName ? desktopName : desktopNumberLabel;
             li.Subtitle = hasName ? desktopNumberLabel : string.Empty;
-            Details details = new Details()
+            li.Details = new Details()
             {
                 Title = li.Title,
                 HeroImage = icon,
             };
-            li.Details = details;
+        }
 
-            if (isCurrent)
-            {
-                li.Tags = [CurrentDesktopTag];
-            }
+        li.Tags = isCurrent ? [CurrentDesktopTag] : [];
+    }
+
+    private ListItem GetOrRefreshItem(VirtualDesktop desktop, bool asBand, int index)
+    {
+        if (!_itemsByDesktopId.TryGetValue(desktop.Id, out var li))
+        {
+            li = DesktopToItem(desktop, asBand, index);
+            _itemsByDesktopId[desktop.Id] = li;
+        }
+        else
+        {
+            ApplyDesktopState(li, desktop, asBand, index);
         }
 
         return li;
