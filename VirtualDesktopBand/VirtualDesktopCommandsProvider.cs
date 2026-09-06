@@ -154,6 +154,14 @@ public partial class VirtualDesktopsListPage : ListPage
         return items.ToArray();
     }
 
+    private void UpdateDesktopsOffUiThread()
+    {
+        Task.Factory.StartNew(UpdateDesktopsOnUiThread,
+            CancellationToken.None,
+            TaskCreationOptions.None,
+            _scheduler);
+    }
+
     private void UpdateDesktopsOnUiThread()
     {
         try
