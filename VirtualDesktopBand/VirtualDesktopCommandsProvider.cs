@@ -155,7 +155,17 @@ public partial class VirtualDesktopsListPage : ListPage
 
     private void UpdateDesktopsOnUiThread()
     {
-        _desktops = VirtualDesktop.GetDesktops();
+        try
+        {
+            _desktops = VirtualDesktop.GetDesktops();
+            var current = VirtualDesktop.Current;
+            LifetimeLog.Write($"Refresh: {_desktops.Length} desktops, current={current.Id}");
+        }
+        catch (Exception e)
+        {
+            LifetimeLog.Write($"Refresh failed: {e.Message}");
+        }
+
         RaiseItemsChanged();
     }
 

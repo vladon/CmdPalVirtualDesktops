@@ -4,3 +4,4 @@ IsWindowVisible
 GetWindowThreadProcessId
 GetWindowText
 GetWindowTextLength
+ShowWindow

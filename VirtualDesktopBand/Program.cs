@@ -10,6 +10,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Vladon.CmdPal.VirtualDesktops;
 
@@ -107,24 +110,81 @@ public class Program
                 return;
             }
 
-            _lastHostRestart = DateTime.Now;
-            LifetimeLog.Write($"Session transition {reason}: restarting CmdPal host");
+            string? hostExePath = null;
             foreach (var process in Process.GetProcessesByName("Microsoft.CmdPal.UI"))
             {
+                try
+                {
+                    hostExePath ??= process.MainModule?.FileName;
+                }
+                catch
+                {
+                    // MainModule can be inaccessible for some processes; the fallback below covers this.
+                }
+
                 process.Kill(entireProcessTree: true);
                 process.Dispose();
             }
 
             Thread.Sleep(1500);
-            Process.Start(new ProcessStartInfo("explorer.exe", "shell:AppsFolder\\Microsoft.CommandPalette_8wekyb3d8bbwe!App")
+            if (!string.IsNullOrEmpty(hostExePath) && File.Exists(hostExePath))
             {
-                UseShellExecute = true,
+                // Launch the exe directly instead of app activation: the latter pops the
+                // palette window open every time, and the user only wants the dock.
+                Process.Start(new ProcessStartInfo(hostExePath) { UseShellExecute = true });
+                LifetimeLog.Write($"Session transition {reason}: host relaunched from {hostExePath}");
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "shell:AppsFolder\\Microsoft.CommandPalette_8wekyb3d8bbwe!App")
+                {
+                    UseShellExecute = true,
+                });
+                LifetimeLog.Write($"Session transition {reason}: host relaunched via AppsFolder");
+            }
+
+            // Belt and suspenders: if the palette window still pops up, hide it again —
+            // the user only wants the dock.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                HidePaletteWindows();
             });
-            LifetimeLog.Write("Session transition: host relaunched");
         }
         catch (Exception e)
         {
             LifetimeLog.Write($"Session transition {reason}: host restart failed — {e.Message}");
+        }
+    }
+
+    private static unsafe void HidePaletteWindows()
+    {
+        try
+        {
+            PInvoke.EnumWindows((hWnd, _) =>
+            {
+                uint windowPid = 0;
+                PInvoke.GetWindowThreadProcessId(hWnd, &windowPid);
+                var bufferSize = PInvoke.GetWindowTextLength(hWnd) + 1;
+                fixed (char* windowNameChars = new char[bufferSize])
+                {
+                    if (PInvoke.GetWindowText(hWnd, windowNameChars, bufferSize) > 0)
+                    {
+                        var title = new string(windowNameChars);
+                        if (title == "Command Palette" && PInvoke.IsWindowVisible(hWnd))
+                        {
+                            PInvoke.ShowWindow(hWnd, SHOW_WINDOW_CMD.SW_HIDE);
+                            LifetimeLog.Write("Hid the palette window that popped up on host relaunch");
+                        }
+                    }
+                }
+
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch (Exception e)
+        {
+            LifetimeLog.Write($"HidePaletteWindows failed — {e.Message}");
         }
     }
 }
