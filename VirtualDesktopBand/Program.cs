@@ -72,6 +72,7 @@ public class Program
             // when the host process itself is gone, so we can't outlive it as an orphan.
             System.Threading.Timer hostWatchdog = new(_ =>
             {
+                LifetimeLog.Write($"Watchdog tick: host processes={Process.GetProcessesByName("Microsoft.CmdPal.UI").Length}");
                 if (Process.GetProcessesByName("Microsoft.CmdPal.UI").Length == 0)
                 {
                     LifetimeLog.Write("Watchdog: host process not found — exiting");
@@ -143,13 +144,9 @@ public class Program
                 LifetimeLog.Write($"Session transition {reason}: host relaunched via AppsFolder");
             }
 
-            // Belt and suspenders: if the palette window still pops up, hide it again —
-            // the user only wants the dock.
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(3000);
-                HidePaletteWindows();
-            });
+            // The palette window can pop up on relaunch (and sometimes a bit later);
+            // poll for a while and hide it — the user only wants the dock.
+            HidePaletteWindowsAfterRelaunch();
         }
         catch (Exception e)
         {
@@ -157,8 +154,27 @@ public class Program
         }
     }
 
-    private static unsafe void HidePaletteWindows()
+    private static void HidePaletteWindowsAfterRelaunch()
     {
+        _ = Task.Run(async () =>
+        {
+            var hidAny = false;
+            for (var attempt = 0; attempt < 30; attempt++)
+            {
+                hidAny |= HidePaletteWindows();
+                await Task.Delay(500);
+            }
+
+            if (!hidAny)
+            {
+                LifetimeLog.Write("Palette window hide polling finished — nothing to hide");
+            }
+        });
+    }
+
+    private static unsafe bool HidePaletteWindows()
+    {
+        var hidAny = false;
         try
         {
             PInvoke.EnumWindows((hWnd, _) =>
@@ -172,6 +188,7 @@ public class Program
                         if (title == "Command Palette" && PInvoke.IsWindowVisible(hWnd))
                         {
                             PInvoke.ShowWindow(hWnd, SHOW_WINDOW_CMD.SW_HIDE);
+                            hidAny = true;
                             LifetimeLog.Write("Hid the palette window that popped up on host relaunch");
                         }
                     }
@@ -184,5 +201,7 @@ public class Program
         {
             LifetimeLog.Write($"HidePaletteWindows failed — {e.Message}");
         }
+
+        return hidAny;
     }
 }
