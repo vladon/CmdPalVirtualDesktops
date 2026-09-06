@@ -91,4 +91,40 @@ public class Program
             Console.WriteLine("Not being launched as a Extension... exiting.");
         }
     }
+
+    private static DateTime _lastHostRestart = DateTime.MinValue;
+
+    // The dock band goes stale across session transitions and the host never re-reads it
+    // (microsoft/PowerToys#50367). The only reliable recovery is bouncing the palette
+    // process, so on RDP/console session switches we quietly do it for the user.
+    internal static void RestartHostForSessionTransition(string reason)
+    {
+        try
+        {
+            if ((DateTime.Now - _lastHostRestart).TotalSeconds < 60)
+            {
+                LifetimeLog.Write($"Session transition {reason}: host restart skipped (rate limit)");
+                return;
+            }
+
+            _lastHostRestart = DateTime.Now;
+            LifetimeLog.Write($"Session transition {reason}: restarting CmdPal host");
+            foreach (var process in Process.GetProcessesByName("Microsoft.CmdPal.UI"))
+            {
+                process.Kill(entireProcessTree: true);
+                process.Dispose();
+            }
+
+            Thread.Sleep(1500);
+            Process.Start(new ProcessStartInfo("explorer.exe", "shell:AppsFolder\\Microsoft.CommandPalette_8wekyb3d8bbwe!App")
+            {
+                UseShellExecute = true,
+            });
+            LifetimeLog.Write("Session transition: host relaunched");
+        }
+        catch (Exception e)
+        {
+            LifetimeLog.Write($"Session transition {reason}: host restart failed — {e.Message}");
+        }
+    }
 }

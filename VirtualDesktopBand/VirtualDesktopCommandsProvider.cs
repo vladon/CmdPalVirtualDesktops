@@ -111,6 +111,18 @@ public partial class VirtualDesktopsListPage : ListPage
         {
             LifetimeLog.Write($"SessionSwitch: {e.Reason}");
             UpdateDesktopsOffUiThread();
+            if (e.Reason is SessionSwitchReason.RemoteConnect
+                or SessionSwitchReason.RemoteDisconnect
+                or SessionSwitchReason.ConsoleConnect
+                or SessionSwitchReason.ConsoleDisconnect)
+            {
+                var reason = e.Reason.ToString();
+                Task.Run(async () =>
+                {
+                    await Task.Delay(3000);
+                    Program.RestartHostForSessionTransition(reason);
+                });
+            }
         };
         DesktopsChanged += UpdateDesktopsOffUiThread;
         VirtualDesktopSettings.Instance.Settings.SettingsChanged += (_, _) => UpdateDesktopsOffUiThread();
