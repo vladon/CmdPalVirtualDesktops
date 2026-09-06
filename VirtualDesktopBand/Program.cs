@@ -164,7 +164,7 @@ public class Program
             PInvoke.EnumWindows((hWnd, _) =>
             {
                 uint windowPid = 0;
-                PInvoke.GetWindowThreadProcessId(hWnd, &windowPid);
+                _ = PInvoke.GetWindowThreadProcessId(hWnd, &windowPid);
                 var bufferSize = PInvoke.GetWindowTextLength(hWnd) + 1;
                 fixed (char* windowNameChars = new char[bufferSize])
                 {
