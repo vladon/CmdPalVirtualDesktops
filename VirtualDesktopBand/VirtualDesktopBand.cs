@@ -36,6 +36,6 @@ public sealed partial class VirtualDesktopBand : IExtension, IDisposable
     // instead; Program's host watchdog exits the process only when the host itself is gone.
     public void Dispose()
     {
-        // Deliberately not signalling _extensionDisposedEvent — see comment above.
+        LifetimeLog.Write("IExtension.Dispose called by host — ignored (keep-alive)");
     }
 }

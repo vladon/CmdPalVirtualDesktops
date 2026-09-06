@@ -7,9 +7,40 @@ using Shmuelie.WinRTServer;
 using Shmuelie.WinRTServer.CsWinRT;
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
 using System.Threading;
 
 namespace Vladon.CmdPal.VirtualDesktops;
+
+// Append-only lifetime trace in %LOCALAPPDATA%\dev.vladon.virtualdesktops\extension.log.
+// Exists because the extension used to disappear without any Event Log trace; this log
+// distinguishes a clean self-exit (ProcessExit/UnhandledException get logged) from an
+// external TerminateProcess (nothing gets logged).
+internal static class LifetimeLog
+{
+    private static readonly object Gate = new();
+
+    internal static void Write(string message)
+    {
+        try
+        {
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "dev.vladon.virtualdesktops");
+            Directory.CreateDirectory(directory);
+            var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{Environment.ProcessId}] {message}{Environment.NewLine}";
+            lock (Gate)
+            {
+                File.AppendAllText(Path.Combine(directory, "extension.log"), line);
+            }
+        }
+        catch
+        {
+            // Logging must never take the extension down.
+        }
+    }
+}
 
 public class Program
 {
@@ -19,6 +50,10 @@ public class Program
         if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
         {
             global::Shmuelie.WinRTServer.ComServer server = new();
+            LifetimeLog.Write($"Started (pid {Environment.ProcessId})");
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => LifetimeLog.Write("ProcessExit: main returned or Environment.Exit was called");
+            AppDomain.CurrentDomain.UnhandledException += (_, e) => LifetimeLog.Write($"UnhandledException isTerminating={e.IsTerminating}: {e.ExceptionObject}");
+            TaskScheduler.UnobservedTaskException += (_, e) => LifetimeLog.Write($"UnobservedTaskException: {e.Exception?.GetBaseException()?.Message}");
 
             ManualResetEvent extensionDisposedEvent = new(false);
 
@@ -36,6 +71,7 @@ public class Program
             {
                 if (Process.GetProcessesByName("Microsoft.CmdPal.UI").Length == 0)
                 {
+                    LifetimeLog.Write("Watchdog: host process not found — exiting");
                     extensionDisposedEvent.Set();
                 }
             });
