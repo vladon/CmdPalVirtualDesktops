@@ -11,7 +11,19 @@ A [Command Palette](https://learn.microsoft.com/windows/powertoys/command-palett
   - *Move window here* — send the topmost eligible window (skips tool and popup windows) to the selected desktop.
   - *Move window and switch* — the same, then switch to that desktop.
 
-The list updates live: desktops created or activated outside the extension are picked up automatically.
+The list updates live: desktops created, activated, renamed, or destroyed — inside or outside the extension — are reflected automatically.
+
+## Changes over the original
+
+This project started as a fork of [zadjii/CmdPalVirtualDesktops](https://github.com/zadjii/CmdPalVirtualDesktops). On top of the original it adds:
+
+- **Dock band survives idle release** — in the original, after some idle time the host releases the extension, its process exits, and the dock band's buttons silently stop working (clicks just open the palette). Here the extension stays alive for as long as the host runs.
+- **RDP sessions don't break the band** — connecting to and disconnecting from an RDP session creates and destroys a virtual desktop. The original doesn't react to desktop destruction, leaving a stale band behind until it is re-pinned; here destruction and renames refresh the band immediately.
+- **Instant band refresh on extension actions** — switching or moving windows through the extension updates the dock at once instead of waiting for the sometimes-delayed COM change event ([original issue #2](https://github.com/zadjii/CmdPalVirtualDesktops/issues/2)).
+- **Custom desktop names on Windows 10** — the original shows "Desktop 1/2/3" on Windows 10 because the COM API returns an empty name there; here the name falls back to the registry, where Windows 10 reliably stores it ([original issue #4](https://github.com/zadjii/CmdPalVirtualDesktops/issues/4)).
+- **Fully offline by manifest** — dropped the unused `internetClient` capability and the leftover WebView2 dependency (adopted from [original PR #3](https://github.com/zadjii/CmdPalVirtualDesktops/pull/3)).
+- **Settings migration** — settings from the original extension are picked up automatically on first run.
+- **Modern runtime, own identity** — retargeted to .NET 10, separate package identity (`dev.vladon.virtualdesktops`) signed with its own key, command IDs and namespaces rebranded.
 
 ## Requirements
 
