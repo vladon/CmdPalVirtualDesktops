@@ -103,6 +103,8 @@ public partial class VirtualDesktopsListPage : ListPage
 
         VirtualDesktop.CurrentChanged += (_, args) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Created += (_, desktop) => UpdateDesktopsOffUiThread();
+        VirtualDesktop.Destroyed += (_, _) => UpdateDesktopsOffUiThread();
+        VirtualDesktop.Renamed += (_, _) => UpdateDesktopsOffUiThread();
         DesktopsChanged += UpdateDesktopsOffUiThread;
         VirtualDesktopSettings.Instance.Settings.SettingsChanged += (_, _) => UpdateDesktopsOffUiThread();
 
