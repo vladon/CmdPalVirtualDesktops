@@ -7,3 +7,7 @@ GetWindowTextLength
 ShowWindow
 CoAddRefServerProcess
 CoReleaseServerProcess
+GetForegroundWindow
+AttachThreadInput
+SetForegroundWindow
+GetCurrentThreadId

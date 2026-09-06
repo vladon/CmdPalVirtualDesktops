@@ -359,6 +359,94 @@ public partial class VirtualDesktopsListPage : ListPage
         return found;
     }
 
+    // The cached desktop object can go stale across session transitions; resolve a fresh
+    // instance by Id (falling back to the cached one) so switches and moves always work.
+    private static VirtualDesktop ResolveFresh(VirtualDesktop desktop)
+    {
+        try
+        {
+            return VirtualDesktop.FromId(desktop.Id) ?? desktop;
+        }
+        catch
+        {
+            return desktop;
+        }
+    }
+
+    // After a programmatic desktop switch Windows keeps the foreground where it was (the
+    // dock button the user just clicked), so the last-used window on the target desktop
+    // never gets focus (zadjii/CmdPalVirtualDesktops#1). Foreground the topmost window
+    // living on the target desktop, skipping the palette host's own windows.
+    private static unsafe void ActivateTopmostWindowOnDesktop(VirtualDesktop target)
+    {
+        var hostProcessIds = Process.GetProcessesByName("Microsoft.CmdPal.UI")
+            .Select(p => p.Id)
+            .ToHashSet();
+
+        PInvoke.EnumWindows((hWnd, _) =>
+        {
+            if (!PInvoke.IsWindowVisible(hWnd))
+            {
+                return true; // continue
+            }
+
+            const int WS_EX_TOOLWINDOW = 0x00000080;
+            int exStyle = PInvoke.GetWindowLong(hWnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            if ((exStyle & WS_EX_TOOLWINDOW) != 0)
+            {
+                return true; // continue
+            }
+
+            // also skip popups
+            const uint WS_POPUP = 0x80000000;
+            int style = PInvoke.GetWindowLong(hWnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+            if ((style & WS_POPUP) != 0)
+            {
+                return true; // continue
+            }
+
+            uint windowPid = 0;
+            _ = PInvoke.GetWindowThreadProcessId(hWnd, &windowPid);
+            if (hostProcessIds.Contains(windowPid))
+            {
+                return true; // skip the palette host's own windows (the dock itself)
+            }
+
+            if (VirtualDesktop.FromHwnd(hWnd) is not VirtualDesktop onDesktop || onDesktop.Id != target.Id)
+            {
+                return true; // window lives on another desktop
+            }
+
+            if (VirtualDesktop.IsPinnedWindow(hWnd))
+            {
+                return true; // pinned windows exist on every desktop
+            }
+
+            ActivateWindow(hWnd);
+            return false; // stop
+        }, IntPtr.Zero);
+    }
+
+    // SetForegroundWindow from a background process is blocked by the foreground lock;
+    // attach our thread to the foreground window's thread to unlock it.
+    private static unsafe void ActivateWindow(HWND hWnd)
+    {
+        try
+        {
+            var foreground = PInvoke.GetForegroundWindow();
+            uint foregroundPid = 0;
+            var foregroundThread = (uint)PInvoke.GetWindowThreadProcessId(foreground, &foregroundPid);
+            var currentThread = PInvoke.GetCurrentThreadId();
+            _ = PInvoke.AttachThreadInput(currentThread, foregroundThread, true);
+            _ = PInvoke.SetForegroundWindow(hWnd);
+            _ = PInvoke.AttachThreadInput(currentThread, foregroundThread, false);
+        }
+        catch (Exception e)
+        {
+            DebugPrint($"ActivateWindow failed\n{e.Message}");
+        }
+    }
+
     private sealed partial class MoveWindowToDesktopCommand(VirtualDesktop desktop, int index, bool andSwitchTo) : InvokableCommand
     {
         public override string Name => andSwitchTo ? "Move window and switch" : "Move window here";
@@ -387,16 +475,18 @@ public partial class VirtualDesktopsListPage : ListPage
                         }
                     }
 
-                    DebugPrint($"Moving window {hWnd} ('{title}') to '{desktop}'");
-                    VirtualDesktop.MoveToDesktop(hWnd, desktop);
+                    var fresh = ResolveFresh(desktop);
+                    DebugPrint($"Moving window {hWnd} ('{title}') to '{fresh}'");
+                    VirtualDesktop.MoveToDesktop(hWnd, fresh);
                     DebugPrint($"...done");
                     DesktopsChanged?.Invoke();
 
                     if (andSwitchTo)
                     {
-                        DebugPrint($"Switching to '{desktop}'");
-                        desktop.Switch();
+                        DebugPrint($"Switching to '{fresh}'");
+                        fresh.Switch();
                         DebugPrint($"...done");
+                        ActivateWindow(hWnd);
                         DesktopsChanged?.Invoke();
                     }
                 }
@@ -429,9 +519,11 @@ public partial class VirtualDesktopsListPage : ListPage
         {
             try
             {
-                DebugPrint($"Switching to '{Desktop.ToString()}'");
-                desktop.Switch();
+                var fresh = ResolveFresh(Desktop);
+                DebugPrint($"Switching to '{fresh}'");
+                fresh.Switch();
                 DebugPrint($"...done");
+                ActivateTopmostWindowOnDesktop(fresh);
                 DesktopsChanged?.Invoke();
             }
             catch (Exception e)
