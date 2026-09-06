@@ -67,6 +67,10 @@ public class VirtualDesktopSettings : JsonSettingsManager
     // First run after the 2.0 rebrand: the package identity changed, so settings would start
     // from scratch. If the pre-2.0 extension ever wrote settings, seed the new location from
     // it. The legacy file is left in place so an old install keeps working until uninstalled.
+    //
+    // Both the original and our pre-unvirtualized builds are packaged apps, so MSIX
+    // redirected their AppData writes into each package's LocalCache — the real
+    // %LOCALAPPDATA% folders never existed for them. Probe the package stores too.
     private static void MigrateLegacySettings(string newDirectory)
     {
         try
@@ -77,21 +81,50 @@ public class VirtualDesktopSettings : JsonSettingsManager
                 return;
             }
 
-            var legacyPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                LegacySettingsFolderName,
-                "settings.json");
-            if (!File.Exists(legacyPath))
+            foreach (var legacyPath in LegacySettingsCandidates())
             {
+                if (!File.Exists(legacyPath))
+                {
+                    continue;
+                }
+
+                File.Copy(legacyPath, newPath);
+                Debug.WriteLine($"Migrated settings from {legacyPath} to {newPath}");
                 return;
             }
-
-            File.Copy(legacyPath, newPath);
-            Debug.WriteLine($"Migrated settings from {legacyPath} to {newPath}");
         }
         catch (Exception e)
         {
             Debug.WriteLine($"Settings migration failed\n{e.Message}");
+        }
+    }
+
+    private static IEnumerable<string> LegacySettingsCandidates()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        // The documented pre-2.0 location (exists only if something ran unpackaged).
+        yield return Path.Combine(localAppData, LegacySettingsFolderName, "settings.json");
+
+        var packagesRoot = Path.Combine(localAppData, "Packages");
+        string[] packageFolders = [];
+        try
+        {
+            packageFolders = Directory.GetDirectories(packagesRoot);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine($"Packages enumeration failed\n{e.Message}");
+        }
+
+        foreach (var package in packageFolders)
+        {
+            yield return Path.Combine(package, "LocalCache", "Local", LegacySettingsFolderName, "settings.json");
+        }
+
+        foreach (var package in packageFolders)
+        {
+            yield return Path.Combine(package, "LocalCache", "Local", SettingsFolderName, "settings.json");
         }
     }
 
