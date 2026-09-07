@@ -172,9 +172,19 @@ public partial class VirtualDesktopsListPage : ListPage
 
         for (int i = 0; i < _desktops.Length; i++)
         {
-            VirtualDesktop desktop = _desktops[i];
-            seenDesktopIds.Add(desktop.Id);
-            items.Add(GetOrRefreshItem(desktop, _asBand, i));
+            try
+            {
+                VirtualDesktop desktop = _desktops[i];
+                seenDesktopIds.Add(desktop.Id);
+                items.Add(GetOrRefreshItem(desktop, _asBand, i));
+            }
+            catch (Exception e)
+            {
+                // A desktop can be destroyed while we enumerate (RDP session desktops) —
+                // every property access on its dead COM object throws. Skip it; the next
+                // GetDesktops() won't include it anymore.
+                LifetimeLog.Write($"GetItems: skipping a dead desktop at index {i} — {e.Message}");
+            }
         }
 
         foreach (var staleId in _itemsByDesktopId.Keys.Where(id => !seenDesktopIds.Contains(id)).ToList())
@@ -255,34 +265,44 @@ public partial class VirtualDesktopsListPage : ListPage
     // its visible state (active desktop highlight) can change.
     private static void ApplyDesktopState(ListItem li, VirtualDesktop desktop, bool asBand, int index)
     {
-        bool isCurrent = desktop == VirtualDesktop.Current;
-        IconInfo wallpaperIconInfo = new IconInfo(desktop.WallpaperPath);
-
-        IconInfo icon = asBand ?
-            (isCurrent
-                ? VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.ActiveDesktopIcon, desktop.WallpaperPath)
-                : VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.InactiveDesktopIcon, desktop.WallpaperPath)) :
-            wallpaperIconInfo;
-
-        li.Icon = icon;
-
-        if (!asBand)
+        try
         {
-            string desktopName = GetDesktopName(desktop, index);
-            bool hasName = !string.IsNullOrEmpty(desktopName);
-            string desktopNumberLabel = $"Desktop {index + 1}";
+            bool isCurrent = desktop == VirtualDesktop.Current;
+            IconInfo wallpaperIconInfo = new IconInfo(desktop.WallpaperPath);
 
-            li.Title = hasName ? desktopName : desktopNumberLabel;
-            li.Subtitle = hasName ? desktopNumberLabel : string.Empty;
-            li.Details = new Details()
+            IconInfo icon = asBand ?
+                (isCurrent
+                    ? VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.ActiveDesktopIcon, desktop.WallpaperPath)
+                    : VirtualDesktopSettings.GetIconForValue(VirtualDesktopSettings.Instance.InactiveDesktopIcon, desktop.WallpaperPath)) :
+                wallpaperIconInfo;
+
+            li.Icon = icon;
+
+            if (!asBand)
             {
-                Title = li.Title,
-                HeroImage = icon,
-            };
-        }
+                string desktopName = GetDesktopName(desktop, index);
+                bool hasName = !string.IsNullOrEmpty(desktopName);
+                string desktopNumberLabel = $"Desktop {index + 1}";
 
-        li.Tags = isCurrent ? [CurrentDesktopTag] : [];
+                li.Title = hasName ? desktopName : desktopNumberLabel;
+                li.Subtitle = hasName ? desktopNumberLabel : string.Empty;
+                li.Details = new Details()
+                {
+                    Title = li.Title,
+                    HeroImage = icon,
+                };
+            }
+
+            li.Tags = isCurrent ? [CurrentDesktopTag] : [];
+        }
+        catch (Exception e)
+        {
+            // Dead desktop (destroyed mid-refresh, e.g. an RDP session desktop): leave the
+            // item as-is — it will disappear on the next successful GetDesktops().
+            DebugPrint($"ApplyDesktopState failed for desktop {desktop.Id}: {e.Message}");
+        }
     }
+
 
     private ListItem GetOrRefreshItem(VirtualDesktop desktop, bool asBand, int index)
     {
