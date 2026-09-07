@@ -28,7 +28,6 @@ This project started as a fork of [zadjii/CmdPalVirtualDesktops](https://github.
 - **Modern runtime, own identity** — retargeted to .NET 10, separate package identity (`dev.vladon.virtualdesktops`) signed with its own key, command IDs and namespaces rebranded.
 
 ## Requirements
-
 - Windows 10 version 2004 (build 19041) or newer, x64 or ARM64
 - PowerToys with Command Palette enabled
 
@@ -42,7 +41,7 @@ The packages are signed with a self-signed certificate (`CN=vladon.dev`); its pu
 
 ```powershell
 certutil -addstore -f TrustedPeople .\vd2-signing.cer
-Add-AppxPackage -Path .\VirtualDesktopBand_2.0.3.0_x64.msix
+Add-AppxPackage -Path .\VirtualDesktopBand_<version>_x64.msix
 ```
 
 If the original extension by zadjii is still installed, remove it first — it is a different package identity: `Get-AppxPackage *CmdPalVirtualDesktops* | Remove-AppxPackage`.
