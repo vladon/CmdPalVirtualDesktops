@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
 using Windows.Win32.UI.WindowsAndMessaging;
 using WindowsDesktop;
 
@@ -445,7 +446,7 @@ public partial class VirtualDesktopsListPage : ListPage
         {
             // synthetic Alt tap — unlocks SetForegroundWindow for our thread
             PInvoke.keybd_event(0x12 /*VK_MENU*/, 0, 0, 0);
-            PInvoke.keybd_event(0x12, 0, 0x0002 /*KEYEVENTF_KEYUP*/, 0);
+            PInvoke.keybd_event(0x12, 0, KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP, 0);
 
             var targetThread = PInvoke.GetWindowThreadProcessId(hWnd, null);
             var currentThread = PInvoke.GetCurrentThreadId();
