@@ -379,6 +379,7 @@ public partial class VirtualDesktopsListPage : ListPage
     // living on the target desktop, skipping the palette host's own windows.
     private static unsafe void ActivateTopmostWindowOnDesktop(VirtualDesktop target)
     {
+        string? activatedTitle = null;
         PInvoke.EnumWindows((hWnd, _) =>
         {
             if (!PInvoke.IsWindowVisible(hWnd))
@@ -425,10 +426,14 @@ public partial class VirtualDesktopsListPage : ListPage
                 return true; // pinned windows exist on every desktop
             }
 
-            DebugPrint($"Activating '{title}' on the target desktop");
+            activatedTitle = title;
             ActivateWindow(hWnd);
             return false; // stop
         }, IntPtr.Zero);
+
+        LifetimeLog.Write(activatedTitle is null
+            ? "No eligible window found on the target desktop"
+            : $"Activated '{activatedTitle}' on the target desktop");
     }
 
     // SetForegroundWindow from a background process is blocked by the foreground lock;
