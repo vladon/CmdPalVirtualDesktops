@@ -379,10 +379,6 @@ public partial class VirtualDesktopsListPage : ListPage
     // living on the target desktop, skipping the palette host's own windows.
     private static unsafe void ActivateTopmostWindowOnDesktop(VirtualDesktop target)
     {
-        var hostProcessIds = Process.GetProcessesByName("Microsoft.CmdPal.UI")
-            .Select(p => p.Id)
-            .ToHashSet();
-
         PInvoke.EnumWindows((hWnd, _) =>
         {
             if (!PInvoke.IsWindowVisible(hWnd))
@@ -405,6 +401,19 @@ public partial class VirtualDesktopsListPage : ListPage
                 return true; // continue
             }
 
+            var bufferSize = PInvoke.GetWindowTextLength(hWnd) + 1;
+            string title;
+            fixed (char* windowNameChars = new char[bufferSize])
+            {
+                _ = PInvoke.GetWindowText(hWnd, windowNameChars, bufferSize);
+                title = new string(windowNameChars);
+            }
+
+            // skip the palette host's own windows (the dock itself)
+            if (title is "Command Palette" or "PowerDock")
+            {
+                return true; // continue
+            }
 
             if (VirtualDesktop.FromHwnd(hWnd) is not VirtualDesktop onDesktop || onDesktop.Id != target.Id)
             {
@@ -416,6 +425,7 @@ public partial class VirtualDesktopsListPage : ListPage
                 return true; // pinned windows exist on every desktop
             }
 
+            DebugPrint($"Activating '{title}' on the target desktop");
             ActivateWindow(hWnd);
             return false; // stop
         }, IntPtr.Zero);
@@ -428,12 +438,11 @@ public partial class VirtualDesktopsListPage : ListPage
         try
         {
             var foreground = PInvoke.GetForegroundWindow();
-            uint foregroundPid = 0;
-            var foregroundThread = (uint)PInvoke.GetWindowThreadProcessId(foreground, &foregroundPid);
+            var foregroundThread = PInvoke.GetWindowThreadProcessId(foreground, null);
             var currentThread = PInvoke.GetCurrentThreadId();
-            _ = PInvoke.AttachThreadInput(currentThread, foregroundThread, true);
+            _ = PInvoke.AttachThreadInput(currentThread, (uint)foregroundThread, true);
             _ = PInvoke.SetForegroundWindow(hWnd);
-            _ = PInvoke.AttachThreadInput(currentThread, foregroundThread, false);
+            _ = PInvoke.AttachThreadInput(currentThread, (uint)foregroundThread, false);
         }
         catch (Exception e)
         {
