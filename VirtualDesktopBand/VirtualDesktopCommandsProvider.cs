@@ -107,9 +107,11 @@ public partial class VirtualDesktopsListPage : ListPage
     private static DateTime _sessionSettleUntil = DateTime.MinValue;
 
     // Flip to true to bounce the palette host on session transitions — the brute-force
-    // recovery for a stale band (blinks the dock for a few seconds). Off while the
-    // deferred-refresh experiment runs.
-    private static readonly bool EnableHostRestartOnSessionTransition = false;
+    // recovery for a stale band (blinks the dock for a few seconds). ENABLED: the
+    // deferred-refresh experiment (v2.0.14) showed the host drops the band binding on
+    // session transitions regardless of extension behavior — the bounce is the only
+    // extension-side recovery (host fix tracked in microsoft/PowerToys#50367).
+    private static readonly bool EnableHostRestartOnSessionTransition = true;
 
     public VirtualDesktopsListPage(bool asBand)
     {
