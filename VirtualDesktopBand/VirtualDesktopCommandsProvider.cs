@@ -427,7 +427,7 @@ public partial class VirtualDesktopsListPage : ListPage
             }
 
             activatedTitle = title;
-            ActivateWindow(hWnd);
+            ActivateWindow(hWnd, title);
             return false; // stop
         }, IntPtr.Zero);
 
@@ -436,22 +436,30 @@ public partial class VirtualDesktopsListPage : ListPage
             : $"Activated '{activatedTitle}' on the target desktop");
     }
 
-    // SetForegroundWindow from a background process is blocked by the foreground lock;
-    // attach our thread to the foreground window's thread to unlock it.
-    private static unsafe void ActivateWindow(HWND hWnd)
+    // SetForegroundWindow from a background process is blocked by the foreground lock.
+    // The reliable recipe: a synthetic Alt tap (grants foreground rights), then share the
+    // input state with the target window's thread via AttachThreadInput, then activate.
+    private static unsafe void ActivateWindow(HWND hWnd, string title)
     {
         try
         {
-            var foreground = PInvoke.GetForegroundWindow();
-            var foregroundThread = PInvoke.GetWindowThreadProcessId(foreground, null);
+            // synthetic Alt tap — unlocks SetForegroundWindow for our thread
+            PInvoke.keybd_event(0x12 /*VK_MENU*/, 0, 0, 0);
+            PInvoke.keybd_event(0x12, 0, 0x0002 /*KEYEVENTF_KEYUP*/, 0);
+
+            var targetThread = PInvoke.GetWindowThreadProcessId(hWnd, null);
             var currentThread = PInvoke.GetCurrentThreadId();
-            _ = PInvoke.AttachThreadInput(currentThread, (uint)foregroundThread, true);
-            _ = PInvoke.SetForegroundWindow(hWnd);
-            _ = PInvoke.AttachThreadInput(currentThread, (uint)foregroundThread, false);
+            _ = PInvoke.AttachThreadInput(currentThread, (uint)targetThread, true);
+            _ = PInvoke.BringWindowToTop(hWnd);
+            var setResult = PInvoke.SetForegroundWindow(hWnd);
+            _ = PInvoke.SetFocus(hWnd);
+            _ = PInvoke.AttachThreadInput(currentThread, (uint)targetThread, false);
+
+            LifetimeLog.Write($"ActivateWindow '{title}': SetForegroundWindow={(setResult != 0)}");
         }
         catch (Exception e)
         {
-            DebugPrint($"ActivateWindow failed\n{e.Message}");
+            LifetimeLog.Write($"ActivateWindow failed\n{e.Message}");
         }
     }
 
@@ -494,7 +502,7 @@ public partial class VirtualDesktopsListPage : ListPage
                         DebugPrint($"Switching to '{fresh}'");
                         fresh.Switch();
                         DebugPrint($"...done");
-                        ActivateWindow(hWnd);
+                        ActivateWindow(hWnd, title);
                         DesktopsChanged?.Invoke();
                     }
                 }

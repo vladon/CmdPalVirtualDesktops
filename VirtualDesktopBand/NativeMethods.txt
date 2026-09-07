@@ -11,3 +11,6 @@ GetForegroundWindow
 AttachThreadInput
 SetForegroundWindow
 GetCurrentThreadId
+keybd_event
+BringWindowToTop
+SetFocus
