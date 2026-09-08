@@ -220,7 +220,7 @@ public class Program
         Guid clsid = new("f1270cad-9bc8-45c2-83a9-bee1cc52b60d");
         Guid iid = Guid.Empty;
         void* classObject = null;
-        var hr = PInvoke.CoCreateInstance(&clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, &iid, &classObject);
+        var hr = PInvoke.CoCreateInstance(in clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, in iid, &classObject);
         LifetimeLog.Write($"COM activation: hr=0x{hr.Value:x8}, launched={(classObject != null)}");
     }
 
