@@ -134,22 +134,26 @@ public class Program
     private static void RunSupervisor(string? selfExePath)
     {
         LifetimeLog.Write($"Supervisor started (watching {selfExePath ?? "???"})");
-        using var mutex = new Mutex(true, @"Local\VD2Supervisor", out var createdNew);
-        if (!createdNew)
+        using var mutex = new Mutex(false, @"Local\VD2Supervisor");
+        var acquired = false;
+        try
+        {
+            acquired = mutex.WaitOne(TimeSpan.Zero);
+        }
+        catch (AbandonedMutexException)
+        {
+            acquired = true; // the previous owner died — the lock is ours now
+        }
+
+        if (!acquired)
         {
             LifetimeLog.Write("Supervisor: another instance owns the mutex — exit");
             return;
         }
 
-        if (string.IsNullOrEmpty(selfExePath) || !File.Exists(selfExePath))
-        {
-            LifetimeLog.Write("Supervisor: self exe path missing — exit");
-            return;
-        }
-
         while (true)
         {
-            Thread.Sleep(5000);
+            Thread.Sleep(3000);
             try
             {
                 var hostAlive = Process.GetProcessesByName("Microsoft.CmdPal.UI").Length > 0;
@@ -159,8 +163,20 @@ public class Program
                     continue;
                 }
 
-                LifetimeLog.Write("Supervisor: extension died while the host is alive — relaunching");
+                LifetimeLog.Write("Supervisor: extension died while the host is alive — relaunching and bouncing the host");
                 Process.Start(new ProcessStartInfo(selfExePath, "-RegisterProcessAsComServer") { UseShellExecute = true });
+                Thread.Sleep(1500);
+                foreach (var p in Process.GetProcessesByName("Microsoft.CmdPal.UI"))
+                {
+                    p.Kill(entireProcessTree: true);
+                    p.Dispose();
+                }
+
+                Thread.Sleep(1500);
+                Process.Start(new ProcessStartInfo("explorer.exe", "shell:AppsFolder\\Microsoft.CommandPalette_8wekyb3d8bbwe!App")
+                {
+                    UseShellExecute = true,
+                });
             }
             catch (Exception e)
             {
@@ -168,9 +184,6 @@ public class Program
             }
         }
     }
-
-    private static DateTime _lastHostRestart = DateTime.MinValue;
-
     // The dock band goes stale across session transitions and the host never re-reads it
     // (microsoft/PowerToys#50367). The only reliable recovery is bouncing the palette
     // process, so on RDP/console session switches we quietly do it for the user.
