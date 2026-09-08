@@ -215,13 +215,12 @@ public class Program
     // COM activation on the extension's CLSID: the SCM launches the CURRENT packaged
     // exe (with -Embedding) exactly like the palette host does — no stale paths, no
     // version mismatches. The activated object is intentionally left unreferenced.
-    private static unsafe void ActivateExtensionViaCom()
+    private static void ActivateExtensionViaCom()
     {
         Guid clsid = new("f1270cad-9bc8-45c2-83a9-bee1cc52b60d");
         Guid iid = Guid.Empty;
-        void* classObject = null;
-        var hr = PInvoke.CoCreateInstance(in clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, in iid, out classObject);
-        LifetimeLog.Write($"COM activation: hr=0x{hr.Value:x8}, launched={(classObject != null)}");
+        var hr = PInvoke.CoCreateInstance(in clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, in iid, out var ppv);
+        LifetimeLog.Write($"COM activation: hr=0x{hr.Value:x8}, launched={(ppv != null)}");
     }
 
     private static DateTime _lastHostRestart = DateTime.MinValue;
