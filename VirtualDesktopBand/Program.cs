@@ -64,15 +64,42 @@ public class Program
             AppDomain.CurrentDomain.UnhandledException += (_, e) => LifetimeLog.Write($"UnhandledException isTerminating={e.IsTerminating}: {e.ExceptionObject}");
             TaskScheduler.UnobservedTaskException += (_, e) => LifetimeLog.Write($"UnobservedTaskException: {e.Exception?.GetBaseException()?.Message}");
 
-            // Detached supervisor: if the host terminates this process after an idle
-            // release (TerminateProcess survives no in-process defense), the supervisor
-            // relaunches it in COM server mode within a few seconds.
+            // Detached supervisor: a RENAMED copy of this exe (%LOCALAPPDATA%\dev.vladon.
+            // virtualdesktops\VirtualDesktopsSupervisor.exe) — it must survive the by-name
+            // process kills that take the extension down. If the host terminates this
+            // process after an idle release, the supervisor relaunches it in COM server
+            // mode and bounces the host, restoring the dock band without any user action.
             try
             {
                 var selfExe = Environment.ProcessPath;
-                if (!string.IsNullOrEmpty(selfExe))
+                var supervisorPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "dev.vladon.virtualdesktops",
+                    "VirtualDesktopsSupervisor.exe");
+                if (string.IsNullOrEmpty(selfExe))
                 {
-                    Process.Start(new ProcessStartInfo(selfExe, "--supervisor \"" + selfExe + "\"") { UseShellExecute = true });
+                    LifetimeLog.Write("Supervisor: self path unknown — not spawned");
+                }
+                else
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(supervisorPath)!);
+                    foreach (var stale in Process.GetProcessesByName("VirtualDesktopsSupervisor"))
+                    {
+                        stale.Kill(entireProcessTree: true);
+                        stale.Dispose();
+                    }
+
+                    Thread.Sleep(200);
+                    try
+                    {
+                        File.Copy(selfExe, supervisorPath, overwrite: true);
+                    }
+                    catch
+                    {
+                        // the previous copy is locked (a running supervisor) — reuse it
+                    }
+
+                    Process.Start(new ProcessStartInfo(supervisorPath, "--supervisor \"" + selfExe + "\"") { UseShellExecute = true });
                     LifetimeLog.Write("Supervisor spawned");
                 }
             }
