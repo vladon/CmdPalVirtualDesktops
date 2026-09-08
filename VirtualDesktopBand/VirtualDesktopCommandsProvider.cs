@@ -102,6 +102,12 @@ public partial class VirtualDesktopsListPage : ListPage
     // updates are the only way its visible state (active desktop highlight) can change.
     private readonly Dictionary<Guid, ListItem> _itemsByDesktopId = new();
 
+    // Slions' COM event notifications stop arriving after session transitions (RDP
+    // takeovers) — this poll is the fallback channel that keeps the dock band in sync.
+    private System.Threading.Timer? _pollTimer;
+    private Guid _lastPolledCurrentId;
+    private string _lastPolledFingerprint = string.Empty;
+
     // Session transitions (RDP/console) can break the host's dock band binding; all
     // host-bound refreshes are suppressed until the session settles (see SessionSwitch).
     private static DateTime _sessionSettleUntil = DateTime.MinValue;
@@ -163,6 +169,11 @@ public partial class VirtualDesktopsListPage : ListPage
         _desktops = VirtualDesktop.GetDesktops();
 
         ShowDetails = !_asBand;
+
+        // Fallback sync channel: Slions events can die across session transitions, so poll
+        // the desktop state directly and raise RaiseItemsChanged only on actual changes.
+        _lastPolledCurrentId = VirtualDesktop.Current.Id;
+        _pollTimer = new Timer(_ => PollDesktopState(), null, 3000, 3000);
     }
 
     public override IListItem[] GetItems()
@@ -193,6 +204,30 @@ public partial class VirtualDesktopsListPage : ListPage
         }
 
         return items.ToArray();
+    }
+
+    private void PollDesktopState()
+    {
+        try
+        {
+            var desktops = VirtualDesktop.GetDesktops();
+            var current = VirtualDesktop.Current;
+            var fingerprint = string.Join('|', desktops.Select(d => d.Id)) + '|' + current.Id;
+            if (fingerprint == _lastPolledFingerprint && current.Id == _lastPolledCurrentId)
+            {
+                return;
+            }
+
+            _lastPolledFingerprint = fingerprint;
+            _lastPolledCurrentId = current.Id;
+            _desktops = desktops;
+            LifetimeLog.Write("Poll: desktop set or current changed — raising items changed");
+            RaiseItemsChanged();
+        }
+        catch (Exception e)
+        {
+            LifetimeLog.Write($"Poll failed: {e.Message}");
+        }
     }
 
     private void UpdateDesktopsOffUiThread()
