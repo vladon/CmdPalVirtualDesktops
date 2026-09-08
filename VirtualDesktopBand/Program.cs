@@ -50,6 +50,12 @@ public class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--supervisor")
+        {
+            RunSupervisor(args.Length > 1 ? args[1] : null);
+            return;
+        }
+
         if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
         {
             global::Shmuelie.WinRTServer.ComServer server = new();
@@ -57,6 +63,23 @@ public class Program
             AppDomain.CurrentDomain.ProcessExit += (_, _) => LifetimeLog.Write("ProcessExit: main returned or Environment.Exit was called");
             AppDomain.CurrentDomain.UnhandledException += (_, e) => LifetimeLog.Write($"UnhandledException isTerminating={e.IsTerminating}: {e.ExceptionObject}");
             TaskScheduler.UnobservedTaskException += (_, e) => LifetimeLog.Write($"UnobservedTaskException: {e.Exception?.GetBaseException()?.Message}");
+
+            // Detached supervisor: if the host terminates this process after an idle
+            // release (TerminateProcess survives no in-process defense), the supervisor
+            // relaunches it in COM server mode within a few seconds.
+            try
+            {
+                var selfExe = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(selfExe))
+                {
+                    Process.Start(new ProcessStartInfo(selfExe, "--supervisor \"" + selfExe + "\"") { UseShellExecute = true });
+                    LifetimeLog.Write("Supervisor spawned");
+                }
+            }
+            catch (Exception e)
+            {
+                LifetimeLog.Write($"Supervisor spawn failed: {e.Message}");
+            }
 
             ManualResetEvent extensionDisposedEvent = new(false);
 
@@ -100,6 +123,49 @@ public class Program
         else
         {
             Console.WriteLine("Not being launched as a Extension... exiting.");
+        }
+    }
+
+    // Detached watchdog process: every 5 seconds, if the palette host is alive but our
+    // extension process is gone (the host terminates released extensions — TerminateProcess
+    // survives no in-process defense), start it again in COM server mode. The relaunched
+    // instance re-registers the COM class factory, so the host can re-activate the
+    // extension (e.g. when the user re-pins the dock band).
+    private static void RunSupervisor(string? selfExePath)
+    {
+        LifetimeLog.Write($"Supervisor started (watching {selfExePath ?? "???"})");
+        using var mutex = new Mutex(true, @"Local\VD2Supervisor", out var createdNew);
+        if (!createdNew)
+        {
+            LifetimeLog.Write("Supervisor: another instance owns the mutex — exit");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(selfExePath) || !File.Exists(selfExePath))
+        {
+            LifetimeLog.Write("Supervisor: self exe path missing — exit");
+            return;
+        }
+
+        while (true)
+        {
+            Thread.Sleep(5000);
+            try
+            {
+                var hostAlive = Process.GetProcessesByName("Microsoft.CmdPal.UI").Length > 0;
+                var extensionAlive = Process.GetProcessesByName("VirtualDesktopsExtension").Length > 0;
+                if (!hostAlive || extensionAlive)
+                {
+                    continue;
+                }
+
+                LifetimeLog.Write("Supervisor: extension died while the host is alive — relaunching");
+                Process.Start(new ProcessStartInfo(selfExePath, "-RegisterProcessAsComServer") { UseShellExecute = true });
+            }
+            catch (Exception e)
+            {
+                LifetimeLog.Write($"Supervisor tick failed: {e.Message}");
+            }
         }
     }
 
