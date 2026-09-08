@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Vladon.CmdPal.VirtualDesktops;
@@ -190,9 +191,8 @@ public class Program
                     continue;
                 }
 
-                LifetimeLog.Write("Supervisor: extension died while the host is alive — relaunching and bouncing the host");
-                Process.Start(new ProcessStartInfo(selfExePath, "-RegisterProcessAsComServer") { UseShellExecute = true });
-                Thread.Sleep(1500);
+                LifetimeLog.Write("Supervisor: extension died while the host is alive — reviving via COM activation and bouncing the host");
+                ActivateExtensionViaCom();
                 foreach (var p in Process.GetProcessesByName("Microsoft.CmdPal.UI"))
                 {
                     p.Kill(entireProcessTree: true);
@@ -210,6 +210,18 @@ public class Program
                 LifetimeLog.Write($"Supervisor tick failed: {e.Message}");
             }
         }
+    }
+
+    // COM activation on the extension's CLSID: the SCM launches the CURRENT packaged
+    // exe (with -Embedding) exactly like the palette host does — no stale paths, no
+    // version mismatches. The activated object is intentionally left unreferenced.
+    private static unsafe void ActivateExtensionViaCom()
+    {
+        Guid clsid = new("f1270cad-9bc8-45c2-83a9-bee1cc52b60d");
+        Guid iid = Guid.Empty;
+        void* classObject = null;
+        var hr = PInvoke.CoCreateInstance(&clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, &iid, &classObject);
+        LifetimeLog.Write($"COM activation: hr=0x{hr.Value:x8}, launched={(classObject != null)}");
     }
 
     private static DateTime _lastHostRestart = DateTime.MinValue;
