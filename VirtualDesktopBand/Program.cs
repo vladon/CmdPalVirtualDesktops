@@ -184,6 +184,9 @@ public class Program
             }
         }
     }
+
+    private static DateTime _lastHostRestart = DateTime.MinValue;
+
     // The dock band goes stale across session transitions and the host never re-reads it
     // (microsoft/PowerToys#50367). The only reliable recovery is bouncing the palette
     // process, so on RDP/console session switches we quietly do it for the user.
