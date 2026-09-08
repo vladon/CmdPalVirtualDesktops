@@ -127,6 +127,7 @@ public partial class VirtualDesktopsListPage : ListPage
         VirtualDesktop.CurrentChanged += (_, args) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Created += (_, desktop) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Destroyed += (_, _) => UpdateDesktopsOffUiThread();
+        VirtualDesktop.Moved += (_, _) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Renamed += (_, _) => UpdateDesktopsOffUiThread();
         // RDP/console transitions recreate the session desktop AND the host's dock band
         // binding can break (microsoft/PowerToys#50367). Suspected trigger: COM item
