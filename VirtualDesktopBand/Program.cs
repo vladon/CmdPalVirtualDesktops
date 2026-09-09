@@ -51,11 +51,6 @@ public class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "--supervisor")
-        {
-            RunSupervisor(args.Length > 1 ? args[1] : null);
-            return;
-        }
 
         if (args.Length > 0 && args[0] == "-RegisterProcessAsComServer")
         {
@@ -65,44 +60,23 @@ public class Program
             AppDomain.CurrentDomain.UnhandledException += (_, e) => LifetimeLog.Write($"UnhandledException isTerminating={e.IsTerminating}: {e.ExceptionObject}");
             TaskScheduler.UnobservedTaskException += (_, e) => LifetimeLog.Write($"UnobservedTaskException: {e.Exception?.GetBaseException()?.Message}");
 
-            // Detached supervisor: a RENAMED copy of this exe (%LOCALAPPDATA%\dev.vladon.
-            // virtualdesktops\VirtualDesktopsSupervisor.exe) — it must survive the by-name
-            // process kills that take the extension down. If the host terminates this
-            // process after an idle release, the supervisor relaunches it in COM server
-            // mode and bounces the host, restoring the dock band without any user action.
+            // Detached supervisor: a separate trimmed single-file exe shipped NEXT TO this
+            // exe in the package and spawned directly from there. Its different exe name
+            // (VirtualDesktopsSupervisor.exe) keeps it alive through the by-name process
+            // kills that take the extension down, and spawning from the package install
+            // dir is the one launch context proven reliable for children. After an
+            // in-place update the previous version's supervisor keeps watching (its
+            // revive is a COM activation — version-independent), the new spawn then
+            // exits on the supervisor mutex, so exactly one stays alive. If the host
+            // terminates this process after an idle release, the supervisor revives it
+            // via COM activation and bounces the host, restoring the dock band without
+            // any user action.
             try
             {
-                var selfExe = Environment.ProcessPath;
-                var supervisorPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "dev.vladon.virtualdesktops",
-                    "VirtualDesktopsSupervisor.exe");
-                if (string.IsNullOrEmpty(selfExe))
-                {
-                    LifetimeLog.Write("Supervisor: self path unknown — not spawned");
-                }
-                else
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(supervisorPath)!);
-                    foreach (var stale in Process.GetProcessesByName("VirtualDesktopsSupervisor"))
-                    {
-                        stale.Kill(entireProcessTree: true);
-                        stale.Dispose();
-                    }
-
-                    Thread.Sleep(200);
-                    try
-                    {
-                        File.Copy(selfExe, supervisorPath, overwrite: true);
-                    }
-                    catch
-                    {
-                        // the previous copy is locked (a running supervisor) — reuse it
-                    }
-
-                    Process.Start(new ProcessStartInfo(supervisorPath, "--supervisor \"" + selfExe + "\"") { UseShellExecute = true });
-                    LifetimeLog.Write("Supervisor spawned");
-                }
+                var supervisorExe = Path.Combine(AppContext.BaseDirectory, "VirtualDesktopsSupervisor.exe");
+                var selfExe = Environment.ProcessPath ?? string.Empty;
+                Process.Start(new ProcessStartInfo(supervisorExe, "--supervisor \"" + selfExe + "\"") { UseShellExecute = true });
+                LifetimeLog.Write("Supervisor spawned");
             }
             catch (Exception e)
             {
@@ -152,75 +126,6 @@ public class Program
         {
             Console.WriteLine("Not being launched as a Extension... exiting.");
         }
-    }
-
-    // Detached watchdog process: every 5 seconds, if the palette host is alive but our
-    // extension process is gone (the host terminates released extensions — TerminateProcess
-    // survives no in-process defense), start it again in COM server mode. The relaunched
-    // instance re-registers the COM class factory, so the host can re-activate the
-    // extension (e.g. when the user re-pins the dock band).
-    private static void RunSupervisor(string? selfExePath)
-    {
-        LifetimeLog.Write($"Supervisor started (watching {selfExePath ?? "???"})");
-        using var mutex = new Mutex(false, @"Local\VD2Supervisor");
-        var acquired = false;
-        try
-        {
-            acquired = mutex.WaitOne(TimeSpan.Zero);
-        }
-        catch (AbandonedMutexException)
-        {
-            acquired = true; // the previous owner died — the lock is ours now
-        }
-
-        if (!acquired)
-        {
-            LifetimeLog.Write("Supervisor: another instance owns the mutex — exit");
-            return;
-        }
-
-        while (true)
-        {
-            Thread.Sleep(3000);
-            try
-            {
-                var hostAlive = Process.GetProcessesByName("Microsoft.CmdPal.UI").Length > 0;
-                var extensionAlive = Process.GetProcessesByName("VirtualDesktopsExtension").Length > 0;
-                if (!hostAlive || extensionAlive)
-                {
-                    continue;
-                }
-
-                LifetimeLog.Write("Supervisor: extension died while the host is alive — reviving via COM activation and bouncing the host");
-                ActivateExtensionViaCom();
-                foreach (var p in Process.GetProcessesByName("Microsoft.CmdPal.UI"))
-                {
-                    p.Kill(entireProcessTree: true);
-                    p.Dispose();
-                }
-
-                Thread.Sleep(1500);
-                Process.Start(new ProcessStartInfo("explorer.exe", "shell:AppsFolder\\Microsoft.CommandPalette_8wekyb3d8bbwe!App")
-                {
-                    UseShellExecute = true,
-                });
-            }
-            catch (Exception e)
-            {
-                LifetimeLog.Write($"Supervisor tick failed: {e.Message}");
-            }
-        }
-    }
-
-    // COM activation on the extension's CLSID: the SCM launches the CURRENT packaged
-    // exe (with -Embedding) exactly like the palette host does — no stale paths, no
-    // version mismatches. The activated object is intentionally left unreferenced.
-    private static void ActivateExtensionViaCom()
-    {
-        Guid clsid = new("f1270cad-9bc8-45c2-83a9-bee1cc52b60d");
-        Guid iid = Guid.Empty;
-        var hr = PInvoke.CoCreateInstance(in clsid, null, CLSCTX.CLSCTX_LOCAL_SERVER, in iid, out var ppv);
-        LifetimeLog.Write($"COM activation: hr=0x{hr.Value:x8}, launched={(ppv != null)}");
     }
 
     private static DateTime _lastHostRestart = DateTime.MinValue;

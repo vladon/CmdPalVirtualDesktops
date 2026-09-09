@@ -14,4 +14,3 @@ GetCurrentThreadId
 keybd_event
 BringWindowToTop
 SetFocus
-CoCreateInstance

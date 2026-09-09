@@ -34,10 +34,24 @@
     <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Content Include="Supervisor\publish\VirtualDesktopsSupervisor.exe" Link="VirtualDesktopsSupervisor.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- The detached supervisor is a separate trimmed single-file exe (it must run from a
+       bare copy in %LOCALAPPDATA%). Build+publish it into Supervisor\publish before this
+       project builds, so the Content item above packs it into the MSIX. -->
+  <Target Name="PublishSupervisor" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)Supervisor&quot; -c $(Configuration) -r win-$([System.String]::Copy('$(Platform)').ToLower()) --self-contained true /p:PublishSingleFile=true /p:PublishReadyToRun=true -o &quot;$(MSBuildThisFileDirectory)Supervisor\publish&quot;" />
+  </Target>
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!-- Supervisor/ is its own project (built by PublishSupervisor above) — keep its
+       sources out of this project's default compile glob. -->
+  <ItemGroup>
+    <Compile Remove="Supervisor\**" />
   </ItemGroup>
 
   <!--
