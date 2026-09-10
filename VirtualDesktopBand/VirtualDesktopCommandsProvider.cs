@@ -24,6 +24,10 @@ public partial class VirtualDesktopCommandsProvider : CommandProvider
     private readonly ICommandItem[] _commands = [];
     private readonly ICommandItem[] _bands;
 
+    // Signalled by the list page when a session transition settles: VirtualDesktopBand
+    // hooks this to its dispose event, which unwinds Main and exits the process — the
+    // supervisor then revives it with fresh desktop connections.
+    internal static Action? RequestExtensionRestart;
     public VirtualDesktopCommandsProvider()
     {
         DisplayName = "Virtual desktops";
@@ -108,16 +112,13 @@ public partial class VirtualDesktopsListPage : ListPage
     private Guid _lastPolledCurrentId;
     private string _lastPolledFingerprint = string.Empty;
 
-    // Session transitions (RDP/console) can break the host's dock band binding; all
-    // host-bound refreshes are suppressed until the session settles (see SessionSwitch).
+    // Session transitions (RDP/console) recreate the session desktop AND break the
+    // host's dock band binding (microsoft/PowerToys#50367) — the trigger is COM item
+    // updates fired into the host mid-transition. So: suppress all host-bound
+    // refreshes while the session settles, then RESTART this process (the supervisor
+    // revives it with fresh desktop connections and bounces the host once, cleanly).
     private static DateTime _sessionSettleUntil = DateTime.MinValue;
-
-    // Flip to true to bounce the palette host on session transitions — the brute-force
-    // recovery for a stale band (blinks the dock for a few seconds). ENABLED: the
-    // deferred-refresh experiment (v2.0.14) showed the host drops the band binding on
-    // session transitions regardless of extension behavior — the bounce is the only
-    // extension-side recovery (host fix tracked in microsoft/PowerToys#50367).
-    private static readonly bool EnableHostRestartOnSessionTransition = true;
+    private static int _transitionRestartScheduled;
 
     public VirtualDesktopsListPage(bool asBand)
     {
@@ -129,11 +130,11 @@ public partial class VirtualDesktopsListPage : ListPage
         VirtualDesktop.Destroyed += (_, _) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Moved += (_, _) => UpdateDesktopsOffUiThread();
         VirtualDesktop.Renamed += (_, _) => UpdateDesktopsOffUiThread();
-        // RDP/console transitions recreate the session desktop AND the host's dock band
-        // binding can break (microsoft/PowerToys#50367). Suspected trigger: COM item
-        // updates fired into the host mid-transition. So: suppress all host-bound
-        // refreshes while the session settles, then apply one deferred refresh — if the
-        // band survives this way, no palette restart is ever needed.
+        // RDP/console transitions recreate the session desktop AND break the host's
+        // dock band binding (microsoft/PowerToys#50367) — firing item updates into the
+        // host mid-transition corrupts its band. So: suppress refreshes while the
+        // session settles, then gracefully restart this process; the supervisor revives
+        // it with fresh desktop connections and the host gets a clean band.
         SystemEvents.SessionSwitch += (_, e) =>
         {
             LifetimeLog.Write($"SessionSwitch: {e.Reason}");
@@ -143,19 +144,14 @@ public partial class VirtualDesktopsListPage : ListPage
                 or SessionSwitchReason.ConsoleDisconnect)
             {
                 _sessionSettleUntil = DateTime.Now.AddSeconds(8);
-                Task.Run(async () =>
+                if (Interlocked.Exchange(ref _transitionRestartScheduled, 1) == 0)
                 {
-                    await Task.Delay(8500);
-                    LifetimeLog.Write("Deferred refresh after session transition");
-                    UpdateDesktopsOffUiThread();
-                });
-                if (EnableHostRestartOnSessionTransition)
-                {
-                    var reason = e.Reason.ToString();
                     Task.Run(async () =>
                     {
-                        await Task.Delay(3000);
-                        Program.RestartHostForSessionTransition(reason);
+                        await Task.Delay(8500);
+                        LifetimeLog.Write("Session settled — restarting the extension process for fresh desktop connections");
+                        Interlocked.Exchange(ref _transitionRestartScheduled, 0);
+                        VirtualDesktopCommandsProvider.RequestExtensionRestart?.Invoke();
                     });
                 }
             }

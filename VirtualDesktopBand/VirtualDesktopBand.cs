@@ -18,6 +18,9 @@ public sealed partial class VirtualDesktopBand : IExtension, IDisposable
 
     public VirtualDesktopBand(ManualResetEvent extensionDisposedEvent)
     {
+        // Session transitions make the list page request a process restart (fresh
+        // desktop connections); signalling the dispose event unwinds Main cleanly.
+        VirtualDesktopCommandsProvider.RequestExtensionRestart += () => extensionDisposedEvent.Set();
         this._extensionDisposedEvent = extensionDisposedEvent;
     }
 
