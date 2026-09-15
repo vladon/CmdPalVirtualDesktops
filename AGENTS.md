@@ -82,7 +82,7 @@ Published to GitHub Releases (`vladon/CmdPalVirtualDesktops`, tag `v<version>`, 
    gh release create v<version> --title "Virtual Desktops 2.0 — v<version>" --notes-file notes.md --latest <msix-x64> <msix-arm64> vd2-signing.cer
    ```
 
-5. To deploy locally: `Add-AppxPackage` the new `.msix` (a bumped version updates in place — no `Remove-AppxPackage` dance), then **restart the CmdPal host** (see Testing & QA) and verify the extension process is alive and searchable in the palette.
+5. To deploy locally: `Add-AppxPackage` the new `.msix` (a bumped version updates in place — no `Remove-AppxPackage` dance), then make the host pick it up via **`x-cmdpal://reload`** (see Testing & QA) and verify the extension process is alive and searchable in the palette.
 6. **winget** (optional, per release): add manifests to `microsoft/winget-pkgs` — sparse-clone your fork (`git clone --depth 1 --filter=blob:none --sparse`), put 3 YAMLs under `manifests/v/Vladon/VirtualDesktops/<version>/`, PR titled `Add version: Vladon.VirtualDesktops version <version>`. **File naming (new convention, enforced by validation)**: `<ID>.installer.yaml`, `<ID>.yaml` (the version manifest!), `<ID>.locale.en-US.yaml` (the defaultLocale!). Use `ManifestVersion: 1.12.0`. Validate locally with `winget validate` before pushing. CLA with Microsoft must be signed once (reply `@microsoft-github-policy-service agree` on the PR). The self-signed cert must be disclosed in the PR body — users trust `vd2-signing.cer` before install.
 
 ## Code Conventions & Common Patterns
@@ -121,7 +121,14 @@ Published to GitHub Releases (`vladon/CmdPalVirtualDesktops`, tag `v<version>`, 
 
 - **No test infrastructure exists**: no test projects, test SDK packages, CI workflows, scripts, or coverage config (verified repo-wide). Don't scaffold tests unprompted.
 - Verification is manual: build, deploy the MSIX, then exercise the extension inside the real CmdPal host (switch/move commands, band icons, settings changes refreshing the list). The `(Package)` launch profile handles deploy.
-- After reinstalling/updating the extension package, **restart the CmdPal host** (`Stop-Process -Name Microsoft.CmdPal.UI -Force`, then relaunch) — the dev build caches extension state and won't show updated top-level commands until restarted.
+- After reinstalling/updating the extension package, make the host pick it up via the **external reload protocol** (no host restart, no palette window popping up):
+
+  ```powershell
+  Stop-Process -Name VirtualDesktopsExtension -Force -ErrorAction SilentlyContinue  # publish's KillRunningExecutable already does this
+  Start-Process 'x-cmdpal://reload'
+  ```
+
+  Requires the "Enable external reload" toggle in CmdPal settings (`AllowExternalReload`). The host then re-activates every extension from disk and reloads top-level commands AND dock bands (log: `%LOCALAPPDATA%\Microsoft\PowerToys\CmdPal\Logs\<ver>\<date>.log`, lines "External Reload triggered" → "Loaded N command(s) and M band(s) from dev.vladon..."). Killing the extension first matters: packaged COM reuses a still-running old process (stale bits) otherwise. Full host restart (`Stop-Process -Name Microsoft.CmdPal.UI -Force` + relaunch) remains the fallback — note it opens the palette window on screen.
 - `DebugPrint` tracing (`Debug.WriteLine`) is the debugging tool — attach DebugView or a debugger to the running `VirtualDesktopsExtension.exe` process.
 
 ## Git Workflow
