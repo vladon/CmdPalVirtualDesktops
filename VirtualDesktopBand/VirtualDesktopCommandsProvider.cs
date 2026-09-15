@@ -34,22 +34,11 @@ public partial class VirtualDesktopCommandsProvider : CommandProvider
         Icon = Icons.AppIcon;
 
         Settings = VirtualDesktopSettings.Instance.Settings;
-        // Stable explicit Ids: the dock band pin and command hotkeys persist the item Id
-        // (e.g. DockSettings CenterBands), and without it the host generates a hash-based
-        // id that silently orphans the pinned band after updates.
         _commands = [
-            new CommandItem(new VirtualDesktopsListPage(asBand: false))
-            {
-                Id = "dev.vladon.virtualDesktops",
-                Title = DisplayName,
-            },
+            new CommandItem(new VirtualDesktopsListPage(asBand: false)) { Title = DisplayName },
         ];
         _bands = [
-            new CommandItem(new VirtualDesktopsListPage(asBand: true))
-            {
-                Id = "dev.vladon.virtualDesktops",
-                Title = DisplayName,
-            },
+            new CommandItem(new VirtualDesktopsListPage(asBand: true)) { Title = DisplayName },
         ];
     }
 
@@ -104,6 +93,10 @@ public partial class VirtualDesktopsListPage : ListPage
     internal static event Action? DesktopsChanged;
 
     public override string Name => "Open";
+
+    // Load-bearing: the dock band pin (DockSettings CenterBands) and command hotkeys
+    // persist this command Id. If it ever goes empty or missing, the host falls back to
+    // a hash-generated id and the pinned band silently orphanes after the next update.
     public override string Id => "dev.vladon.virtualDesktops";
     public override IconInfo Icon => Icons.TaskViewIcon;
 
