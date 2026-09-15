@@ -50,7 +50,7 @@ Once installed, the extension registers itself with CmdPal — look for **Virtua
 
 #### Updating from a previous version
 
-Install the newer `.msix` the same way — `Add-AppxPackage` updates in place and your settings are preserved. The running Command Palette keeps serving the old extension bits until it re-activates the extension, so nudge it afterwards:
+Install the newer `.msix` the same way — `Add-AppxPackage` updates in place and your settings are preserved. If Windows reports the package is in use (`0x80073D02`), restart Command Palette first (see below) or add `-ForceApplicationShutdown` to the command. The running Command Palette keeps serving the old extension bits until it re-activates the extension, so nudge it afterwards:
 
 - **Always works:** restart Command Palette — exit PowerToys from the tray and start it again (or sign out and back in).
 - **Silent, opt-in:** in Command Palette settings enable *For developers → Enable external reload*, then run `x-cmdpal://reload` (e.g. `Win + R` → `x-cmdpal://reload`). The host re-activates every extension from disk without restarting and without opening the palette window. If the toggle is off, the protocol is ignored — use the restart above.
