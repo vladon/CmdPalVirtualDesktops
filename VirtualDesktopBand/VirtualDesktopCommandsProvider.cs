@@ -34,11 +34,22 @@ public partial class VirtualDesktopCommandsProvider : CommandProvider
         Icon = Icons.AppIcon;
 
         Settings = VirtualDesktopSettings.Instance.Settings;
+        // Stable explicit Ids: the dock band pin and command hotkeys persist the item Id
+        // (e.g. DockSettings CenterBands), and without it the host generates a hash-based
+        // id that silently orphans the pinned band after updates.
         _commands = [
-            new CommandItem(new VirtualDesktopsListPage(asBand: false)) { Title = DisplayName },
+            new CommandItem(new VirtualDesktopsListPage(asBand: false))
+            {
+                Id = "dev.vladon.virtualDesktops",
+                Title = DisplayName,
+            },
         ];
         _bands = [
-            new CommandItem(new VirtualDesktopsListPage(asBand: true)) { Title = DisplayName },
+            new CommandItem(new VirtualDesktopsListPage(asBand: true))
+            {
+                Id = "dev.vladon.virtualDesktops",
+                Title = DisplayName,
+            },
         ];
     }
 
